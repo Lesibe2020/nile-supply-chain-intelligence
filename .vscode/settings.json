@@ -1,0 +1,11 @@
+﻿{
+    "python.defaultInterpreterPath": "python",
+    "python.terminal.activateEnvironment": false,
+    "terminal.integrated.automationShell.windows": "",
+    "python.analysis.typeCheckingMode": "off",
+    "code-runner.runInTerminal": true,
+    "code-runner.saveFileBeforeRun": true,
+    "code-runner.executorMap": {
+        "python": "python -u"
+    }
+}
