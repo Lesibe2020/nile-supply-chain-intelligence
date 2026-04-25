@@ -1,0 +1,23 @@
+{
+  "generation_date": "2026-04-25T14:40:24.219491",
+  "parameters": {
+    "orders": 20000,
+    "start_date": "2022-01-01",
+    "end_date": "2024-06-30",
+    "sample_size": 10000,
+    "output": "nile_supply_chain.csv",
+    "sample_output": "nile_supply_chain_sample.csv",
+    "seed": 42,
+    "suppliers": null,
+    "delay_multiplier": 1.0,
+    "price_volatility": 1.0
+  },
+  "statistics": {
+    "total_orders": 20000,
+    "total_value": 183582316.21999997,
+    "on_time_rate": 0.08555,
+    "avg_delay": 4.99315,
+    "unique_suppliers": 19,
+    "unique_products": 30
+  }
+}

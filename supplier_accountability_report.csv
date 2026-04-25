@@ -1,0 +1,75 @@
+Supplier,Region,Type,Scale,Total Orders,Delayed Orders,Delay Rate %,Avg Risk Score,Accountability Grade,Total Value,Recommendation
+North West Small Sunflowers,North West,Local,Small,1312,1312,100.0,61.1,F (Critical - Review Required),13676044.50999999,Terminate
+North West Medium Maize,North West,Local,Medium,1393,1393,100.0,63.3,F (Critical - Review Required),14894804.399999999,Terminate
+Spain Medium Imports,Spain,International,Medium,1358,1358,100.0,64.5,F (Critical - Review Required),15482711.260000018,Terminate
+Northern Cape Large Dates,Northern Cape,Local,Large,1362,1362,100.0,51.5,F (Critical - Review Required),14366684.669999998,Terminate
+Northern Cape Large Grapes,Northern Cape,Local,Large,1328,1328,100.0,52.9,F (Critical - Review Required),14287257.260000005,Terminate
+Northern Cape Medium Dates,Northern Cape,Local,Medium,1320,1320,100.0,55.4,F (Critical - Review Required),13626330.110000003,Terminate
+Northern Cape Medium Grapes,Northern Cape,Local,Medium,1347,1347,100.0,50.8,F (Critical - Review Required),13835372.629999995,Terminate
+Northern Cape Small Dates,Northern Cape,Local,Small,1333,1333,100.0,57.0,F (Critical - Review Required),14912307.669999998,Terminate
+Northern Cape Small Grapes,Northern Cape,Local,Small,1344,1344,100.0,57.4,F (Critical - Review Required),13229971.21000001,Terminate
+Limpopo Large Avocados,Limpopo,Local,Large,1305,1305,100.0,53.0,F (Critical - Review Required),13265279.850000007,Terminate
+Limpopo Large Subtropical,Limpopo,Local,Large,1344,1344,100.0,58.2,F (Critical - Review Required),13983349.779999996,Terminate
+Limpopo Medium Avocados,Limpopo,Local,Medium,1347,1347,100.0,53.6,F (Critical - Review Required),14170621.580000011,Terminate
+Limpopo Medium Subtropical,Limpopo,Local,Medium,1337,1337,100.0,50.1,F (Critical - Review Required),16159249.110000001,Terminate
+Limpopo Small Avocados,Limpopo,Local,Small,1294,1294,100.0,59.3,F (Critical - Review Required),13692367.159999996,Terminate
+Limpopo Small Subtropical,Limpopo,Local,Small,1350,1350,100.0,51.9,F (Critical - Review Required),15350622.05000002,Terminate
+North West Large Sunflowers,North West,Local,Large,1304,1304,100.0,60.8,F (Critical - Review Required),14145244.799999995,Terminate
+North West Large Maize,North West,Local,Large,1361,1361,100.0,57.7,F (Critical - Review Required),15821343.200000005,Terminate
+Spain Large Imports,Spain,International,Large,1377,1377,100.0,68.1,F (Critical - Review Required),16592367.349999983,Terminate
+Netherlands Medium Imports,Netherlands,International,Medium,1321,1321,100.0,65.8,F (Critical - Review Required),19064126.159999974,Terminate
+Netherlands Large Imports,Netherlands,International,Large,1330,1330,100.0,72.1,F (Critical - Review Required),16619921.460000014,Terminate
+Thailand Medium Imports,Thailand,International,Medium,1335,1335,100.0,54.9,F (Critical - Review Required),15030818.510000007,Terminate
+Kenya Medium Imports,Kenya,International,Medium,1298,1298,100.0,46.2,F (Critical - Review Required),13608895.260000007,Terminate
+India Large Imports,India,International,Large,1337,1337,100.0,46.9,F (Critical - Review Required),15196610.150000008,Terminate
+India Medium Imports,India,International,Medium,1400,1400,100.0,48.3,F (Critical - Review Required),15067612.719999997,Terminate
+China Large Imports,China,International,Large,1401,1401,100.0,53.7,F (Critical - Review Required),16852733.489999987,Terminate
+China Medium Imports,China,International,Medium,1298,1298,100.0,51.0,F (Critical - Review Required),14852400.550000018,Terminate
+Thailand Large Imports,Thailand,International,Large,1408,1408,100.0,49.1,F (Critical - Review Required),16352568.679999996,Terminate
+Peru Large Imports,Peru,International,Large,1403,1403,100.0,53.5,F (Critical - Review Required),19222420.950000007,Terminate
+USA Medium Imports,USA,International,Medium,1292,1292,100.0,64.8,F (Critical - Review Required),16711455.909999993,Terminate
+Peru Medium Imports,Peru,International,Medium,1370,1370,100.0,62.1,F (Critical - Review Required),15526003.979999991,Terminate
+Chile Large Imports,Chile,International,Large,1403,1403,100.0,56.9,F (Critical - Review Required),16558747.369999986,Terminate
+Chile Medium Imports,Chile,International,Medium,1420,1420,100.0,57.5,F (Critical - Review Required),16665554.510000002,Terminate
+Italy Large Imports,Italy,International,Large,1390,1390,100.0,66.4,F (Critical - Review Required),16422805.580000008,Terminate
+Italy Medium Imports,Italy,International,Medium,1376,1376,100.0,66.3,F (Critical - Review Required),16472007.980000004,Terminate
+USA Large Imports,USA,International,Large,1380,1380,100.0,64.3,F (Critical - Review Required),18350249.029999986,Terminate
+North West Medium Sunflowers,North West,Local,Medium,1362,1362,100.0,55.5,F (Critical - Review Required),16223879.750000013,Terminate
+Kenya Large Imports,Kenya,International,Large,1371,1371,100.0,46.5,F (Critical - Review Required),15191893.330000013,Terminate
+Eastern Cape Small Livestock,Eastern Cape,Local,Small,1364,1364,100.0,69.1,F (Critical - Review Required),14173340.239999998,Terminate
+Mpumalanga Small Tropical,Mpumalanga,Local,Small,1348,1348,100.0,65.2,F (Critical - Review Required),13766122.129999999,Terminate
+KwaZulu-Natal Small Subtropical,KwaZulu-Natal,Local,Small,1327,1327,100.0,74.8,F (Critical - Review Required),14020723.459999992,Terminate
+KwaZulu-Natal Small Vegetables,KwaZulu-Natal,Local,Small,1398,1398,100.0,64.7,F (Critical - Review Required),16712119.890000008,Terminate
+KwaZulu-Natal Medium Subtropical,KwaZulu-Natal,Local,Medium,1337,1337,100.0,74.0,F (Critical - Review Required),14361360.420000015,Terminate
+KwaZulu-Natal Medium Vegetables,KwaZulu-Natal,Local,Medium,1338,1338,100.0,73.9,F (Critical - Review Required),14472666.35000003,Terminate
+KwaZulu-Natal Large Subtropical,KwaZulu-Natal,Local,Large,1361,1361,100.0,71.4,F (Critical - Review Required),15333160.870000003,Terminate
+KwaZulu-Natal Large Vegetables,KwaZulu-Natal,Local,Large,1382,1382,100.0,70.2,F (Critical - Review Required),14424367.490000002,Terminate
+Eastern Cape Small Citrus,Eastern Cape,Local,Small,1362,1362,100.0,68.2,F (Critical - Review Required),14442089.359999996,Terminate
+North West Small Maize,North West,Local,Small,1396,1396,100.0,62.9,F (Critical - Review Required),14051558.319999997,Terminate
+Eastern Cape Medium Citrus,Eastern Cape,Local,Medium,1364,1364,100.0,64.9,F (Critical - Review Required),16046078.850000007,Terminate
+Eastern Cape Medium Livestock,Eastern Cape,Local,Medium,1369,1369,100.0,60.7,F (Critical - Review Required),16222462.360000012,Terminate
+Eastern Cape Large Livestock,Eastern Cape,Local,Large,1414,1414,100.0,59.5,F (Critical - Review Required),15907862.54,Terminate
+Eastern Cape Large Citrus,Eastern Cape,Local,Large,1305,1305,100.0,59.8,F (Critical - Review Required),15482276.34,Terminate
+Mpumalanga Small Vegetables,Mpumalanga,Local,Small,1238,1238,100.0,60.3,F (Critical - Review Required),13908857.779999996,Terminate
+Mpumalanga Medium Tropical,Mpumalanga,Local,Medium,1347,1347,100.0,62.3,F (Critical - Review Required),13704593.9,Terminate
+Mpumalanga Medium Vegetables,Mpumalanga,Local,Medium,1319,1319,100.0,65.5,F (Critical - Review Required),13432931.929999989,Terminate
+Mpumalanga Large Tropical,Mpumalanga,Local,Large,1325,1325,100.0,61.7,F (Critical - Review Required),14259395.629999986,Terminate
+Mpumalanga Large Vegetables,Mpumalanga,Local,Large,1301,1301,100.0,61.6,F (Critical - Review Required),14013341.750000011,Terminate
+Free State Small Grains,Free State,Local,Small,1385,1385,100.0,65.6,F (Critical - Review Required),14773939.579999987,Terminate
+Free State Small Potatoes,Free State,Local,Small,1337,1337,100.0,62.5,F (Critical - Review Required),13623999.109999998,Terminate
+Free State Medium Grains,Free State,Local,Medium,1400,1400,100.0,65.0,F (Critical - Review Required),14583961.379999988,Terminate
+Free State Medium Potatoes,Free State,Local,Medium,1339,1339,100.0,57.3,F (Critical - Review Required),16472296.18999999,Terminate
+Free State Large Grains,Free State,Local,Large,1381,1381,100.0,57.4,F (Critical - Review Required),16433920.940000001,Terminate
+Free State Large Potatoes,Free State,Local,Large,1314,1314,100.0,59.9,F (Critical - Review Required),13430423.780000003,Terminate
+Gauteng Large Grains,Gauteng,Local,Large,1346,812,60.3,71.7,F (Critical - Review Required),15408348.249999994,Terminate
+Gauteng Small Distribution,Gauteng,Local,Small,1423,850,59.7,68.6,F (Critical - Review Required),17585984.079999994,Terminate
+Western Cape Large Vegetables,Western Cape,Local,Large,1350,790,58.5,77.6,F (Critical - Review Required),14542664.38999998,Terminate
+Gauteng Medium Distribution,Gauteng,Local,Medium,1354,772,57.0,73.6,F (Critical - Review Required),13982289.150000006,Terminate
+Gauteng Small Grains,Gauteng,Local,Small,1340,762,56.9,77.2,F (Critical - Review Required),14267574.66999999,Terminate
+Western Cape Small Premium,Western Cape,Local,Small,1328,749,56.4,77.9,F (Critical - Review Required),17024364.82,Terminate
+Western Cape Medium Vegetables,Western Cape,Local,Medium,1368,765,55.9,80.9,F (Critical - Review Required),15852622.219999999,Terminate
+Gauteng Large Distribution,Gauteng,Local,Large,1384,772,55.8,79.3,F (Critical - Review Required),14522651.09000001,Terminate
+Western Cape Small Vegetables,Western Cape,Local,Small,1348,751,55.7,74.9,F (Critical - Review Required),15754713.76000002,Terminate
+Western Cape Large Premium,Western Cape,Local,Large,1313,719,54.8,76.4,F (Critical - Review Required),15584447.899999982,Terminate
+Gauteng Medium Grains,Gauteng,Local,Medium,1352,726,53.7,76.1,F (Critical - Review Required),16069841.429999987,Terminate
+Western Cape Medium Premium,Western Cape,Local,Medium,1332,702,52.7,82.3,F (Critical - Review Required),13794601.709999997,Terminate
