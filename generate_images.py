@@ -1,4 +1,4 @@
-# generate_images.py
+# generate_images.py - IMPROVED VERSION
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
@@ -6,6 +6,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.gridspec as gridspec
 import os
+import glob
 
 # Set style - use available matplotlib styles instead of seaborn
 try:
@@ -541,7 +542,6 @@ print("=" * 60)
 
 # Verify all images were created
 print("\nVerifying images:")
-import glob
 for i in range(1, 9):
     files = glob.glob(f"images/{i:02d}_*.png")
     if files:
