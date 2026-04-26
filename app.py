@@ -1,5 +1,5 @@
 # app.py - NILE.AG COMPLETE PRODUCTION READY
-# Includes automatic data generation, all charts, and decision engine
+# Includes automatic data generation, all charts, decision engine, and downloads
 
 import streamlit as st
 import pandas as pd
@@ -11,6 +11,8 @@ from datetime import datetime, timedelta
 import os
 from plotly.subplots import make_subplots
 import random
+import io
+import zipfile
 
 warnings.filterwarnings('ignore')
 
@@ -48,6 +50,12 @@ st.markdown("""
         text-align: center;
         border: 2px solid #667eea;
     }
+    .download-section {
+        background: #f0f2f6;
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -55,7 +63,7 @@ st.markdown("""
 # DATA GENERATOR (AUTOMATIC)
 # ============================================================================
 
-def generate_sample_data(n_orders=5000):
+def generate_sample_data(n_orders=10000):
     """Generate realistic sample data on the fly"""
     
     np.random.seed(42)
@@ -417,7 +425,39 @@ def create_south_africa_map(df):
 
 
 # ============================================================================
-# MAIN APP
+# DOWNLOAD FUNCTIONS
+# ============================================================================
+
+def create_download_zip(df, supplier_report, product_report, regional_report, priority_list):
+    """Create a zip file with all reports"""
+    zip_buffer = io.BytesIO()
+    
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        # Add main data
+        zip_file.writestr('full_data.csv', df.to_csv(index=False))
+        zip_file.writestr('priority_list.csv', priority_list.to_csv(index=False))
+        zip_file.writestr('supplier_report.csv', supplier_report.to_csv(index=False))
+        zip_file.writestr('product_report.csv', product_report.to_csv(index=False))
+        zip_file.writestr('regional_report.csv', regional_report.to_csv(index=False))
+        
+        # Add summary report
+        summary = pd.DataFrame({
+            'Metric': ['Total Orders', 'Total Revenue', 'On-Time %', 'Total Loss', 'High Risk Orders'],
+            'Value': [
+                len(df), 
+                f"R{df['total_value_zar'].sum():,.2f}",
+                f"{df['on_time'].mean() * 100:.1f}%",
+                f"R{df['total_delay_cost'].sum():,.2f}",
+                len(df[df['risk_level'] == '🔴 HIGH'])
+            ]
+        })
+        zip_file.writestr('executive_summary.csv', summary.to_csv(index=False))
+    
+    return zip_buffer.getvalue()
+
+
+# ============================================================================
+# MAIN RENDER FUNCTION
 # ============================================================================
 
 def render_dashboard(df, rules):
@@ -437,6 +477,51 @@ def render_dashboard(df, rules):
     high_risk_count = len(df[df["risk_level"] == "🔴 HIGH"])
     on_time_rate = df["on_time"].mean() * 100
     total_revenue = df["total_value_zar"].sum()
+    
+    # ==================== DOWNLOAD SECTION ====================
+    st.markdown('<div class="download-section">', unsafe_allow_html=True)
+    st.markdown("### 📥 Download Reports")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        zip_data = create_download_zip(df, supplier_report, product_report, regional_report, priority)
+        st.download_button(
+            label="📦 Download ALL Reports (ZIP)",
+            data=zip_data,
+            file_name=f"nile_reports_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
+            mime="application/zip",
+            use_container_width=True
+        )
+    
+    with col2:
+        st.download_button(
+            label="📊 Priority List (CSV)",
+            data=priority.to_csv(index=False),
+            file_name="priority_list.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    
+    with col3:
+        st.download_button(
+            label="🏭 Supplier Report (CSV)",
+            data=supplier_report.to_csv(index=False),
+            file_name="supplier_report.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    
+    with col4:
+        st.download_button(
+            label="📦 Full Data (CSV)",
+            data=df.to_csv(index=False),
+            file_name="full_data.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    
+    st.markdown('</div>', unsafe_allow_html=True)
     
     # ==================== PREDICTION BANNER ====================
     if prediction["predicted_delayed"] > 0:
@@ -588,15 +673,11 @@ def render_dashboard(df, rules):
                      delta=f"-R{sim['savings']:,.0f}" if sim['savings'] > 0 else None)
             st.metric("Improvement", f"{sim['savings_pct']:.0f}%")
             st.success(f"💰 Potential savings: R{sim['savings']:,.0f}")
-    
-    # Export
-    st.markdown("---")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.download_button("📊 Export Priority List", priority.to_csv(index=False), "priority.csv", "text/csv")
-    with col2:
-        st.download_button("🏭 Export Supplier Report", supplier_report.to_csv(index=False), "suppliers.csv", "text/csv")
 
+
+# ============================================================================
+# MAIN APP
+# ============================================================================
 
 def main():
     st.markdown("""
