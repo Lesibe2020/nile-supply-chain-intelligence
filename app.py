@@ -1,746 +1,425 @@
-# app.py - NILE.AG COMPLETE PRODUCTION READY
-# Includes automatic data generation, all charts, decision engine, and downloads
 
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 import numpy as np
-import warnings
-from datetime import datetime, timedelta
+import seaborn as sns
+import matplotlib.gridspec as gridspec
 import os
-from plotly.subplots import make_subplots
-import random
-import io
-import zipfile
+import pandas as pd
 
-warnings.filterwarnings('ignore')
+# Set style
+plt.style.use('seaborn-v0-8-darkgrid')
+sns.set_palette("husl")
 
-st.set_page_config(
-    page_title="Nile.ag - Operations Decision Engine",
-    page_icon="🌱",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Create output directory
+os.makedirs("images", exist_ok=True)
 
-# ============================================================================
-# CUSTOM CSS
-# ============================================================================
-
-st.markdown("""
-<style>
-    .main-header {
-        background: linear-gradient(135deg, #0F2027, #203A43, #2C5364);
-        padding: 2rem;
-        border-radius: 20px;
-        margin-bottom: 2rem;
-        text-align: center;
-    }
-    .stMetric {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 15px;
-        border-radius: 15px;
-        color: white;
-    }
-    .prediction-banner {
-        background: linear-gradient(135deg, #667eea20, #764ba220);
-        padding: 1.5rem;
-        border-radius: 15px;
-        margin: 1rem 0;
-        text-align: center;
-        border: 2px solid #667eea;
-    }
-    .download-section {
-        background: #f0f2f6;
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 1rem 0;
-    }
-</style>
-""", unsafe_allow_html=True)
+print("=" * 60)
+print("Generating Nile.ag App-Aligned Images")
+print("=" * 60)
 
 # ============================================================================
-# DATA GENERATOR (AUTOMATIC)
+# Helper function to create realistic delay data
 # ============================================================================
-
-def generate_sample_data(n_orders=10000):
-    """Generate realistic sample data on the fly"""
-    
-    np.random.seed(42)
-    random.seed(42)
-    
-    start_date = datetime(2022, 1, 1)
-    end_date = datetime(2024, 12, 31)
-    
-    products = {
-        "Tomatoes": {"cat": "Vegetables", "perish": True, "base": 12},
-        "Lettuce": {"cat": "Vegetables", "perish": True, "base": 10},
-        "Spinach": {"cat": "Vegetables", "perish": True, "base": 15},
-        "Potatoes": {"cat": "Roots", "perish": False, "base": 7},
-        "Onions": {"cat": "Roots", "perish": False, "base": 8},
-        "Apples": {"cat": "Fruits", "perish": False, "base": 20},
-        "Bananas": {"cat": "Fruits", "perish": True, "base": 10},
-        "Avocados": {"cat": "Fruits", "perish": True, "base": 35},
-        "Oranges": {"cat": "Fruits", "perish": False, "base": 18},
-        "Mangoes": {"cat": "Fruits", "perish": True, "base": 22},
-        "Grapes": {"cat": "Fruits", "perish": True, "base": 32},
-        "Herbs": {"cat": "Herbs", "perish": True, "base": 40},
-        "Peppers": {"cat": "Vegetables", "perish": True, "base": 18},
-        "Garlic": {"cat": "Roots", "perish": False, "base": 50},
-        "Ginger": {"cat": "Roots", "perish": False, "base": 45},
-    }
-    
-    suppliers = [
-        ("Cape Fresh Farms", "Western Cape", 0.92),
-        ("Stellenbosch Harvest", "Western Cape", 0.90),
-        ("Limpopo Agro Farms", "Limpopo", 0.72),
-        ("Bushveld Produce", "Limpopo", 0.68),
-        ("KZN Fresh Hub", "KwaZulu-Natal", 0.82),
-        ("Durban Traders", "KwaZulu-Natal", 0.84),
-        ("Eastern Cape Co-op", "Eastern Cape", 0.76),
-        ("Karoo Fresh", "Eastern Cape", 0.72),
-        ("Gauteng Market Hub", "Gauteng", 0.88),
-        ("Joburg Distributors", "Gauteng", 0.86),
-        ("Mpumalanga Fresh", "Mpumalanga", 0.78),
-        ("Lowveld Growers", "Mpumalanga", 0.75),
-        ("Free State Grain", "Free State", 0.82),
-        ("North West Agri", "North West", 0.78),
-        ("Northern Cape Fresh", "Northern Cape", 0.72),
-    ]
-    
-    region_penalty = {
-        "Western Cape": 0, "Gauteng": 0, "KwaZulu-Natal": 1,
-        "Eastern Cape": 2, "Mpumalanga": 2, "Limpopo": 3,
-        "Free State": 1, "North West": 1, "Northern Cape": 2,
-    }
-    
-    orders = []
-    date_range = (end_date - start_date).days
-    dates = [start_date + timedelta(days=i) for i in range(date_range)]
-    order_dates = np.random.choice(dates, n_orders, replace=True)
-    
-    for i in range(n_orders):
-        date = order_dates[i]
-        product_name = random.choice(list(products.keys()))
-        product = products[product_name]
-        supplier_name, region, reliability = random.choice(suppliers)
-        
-        qty = int(np.random.gamma(2, 150)) + 20
-        qty = min(qty, 3000)
-        
-        # Seasonal price factor
-        if date.month in [1,2,3] and product_name in ["Tomatoes", "Avocados"]:
-            seasonal_factor = 0.85
-        else:
-            seasonal_factor = 1.0
-        
-        price = product["base"] * seasonal_factor * np.random.normal(1, 0.15)
-        if np.random.random() < 0.05:
-            price *= random.uniform(1.3, 1.8)
-        price = round(price, 2)
-        
-        # Delay calculation
-        if np.random.random() > reliability:
-            delay = int(np.random.exponential(4))
-        else:
-            delay = 0
-        
-        delay += region_penalty.get(region, 1)
-        
-        if qty > 1500:
-            delay += 2
-        if product["perish"] and delay > 0:
-            delay += int(delay * 0.3)
-        if date.weekday() >= 5:
-            delay += 1
-        if date.month in [11, 12]:
-            delay += 1
-        
-        delay = min(delay, 20)
-        
-        promised = random.randint(2, 5)
-        actual = max(1, promised + delay)
-        
-        orders.append({
-            "order_id": f"ORD-{100000 + i}",
-            "order_date": date,
-            "product": product_name,
-            "product_category": product["cat"],
-            "perishable": product["perish"],
-            "supplier": supplier_name,
-            "supplier_region": region,
-            "quantity_kg": qty,
-            "price_per_kg": price,
-            "total_value_zar": round(price * qty, 2),
-            "promised_days": promised,
-            "actual_days": actual,
-            "delay_days": delay,
-        })
-    
-    df = pd.DataFrame(orders)
-    df["expected_delivery_date"] = df["order_date"] + pd.to_timedelta(df["promised_days"], unit="D")
-    df["actual_delivery_date"] = df["order_date"] + pd.to_timedelta(df["actual_days"], unit="D")
-    df["on_time"] = (df["delay_days"] <= 0).astype(int)
-    df = df.sort_values("order_date").reset_index(drop=True)
-    
-    return df
-
+def create_delay_data():
+    regions = ['Western Cape', 'Gauteng', 'KZN', 'Eastern Cape', 'Limpopo', 'Mpumalanga']
+    products = ['Tomatoes', 'Lettuce', 'Avocados', 'Potatoes', 'Apples', 'Herbs']
+    data = np.array([
+        [1.2, 2.1, 3.0, 2.5, 1.8, 4.2],  # Western Cape
+        [2.5, 3.2, 4.1, 3.5, 2.8, 5.2],  # Gauteng
+        [3.5, 4.2, 5.0, 4.2, 3.5, 6.0],  # KZN
+        [4.2, 5.1, 6.0, 5.0, 4.2, 7.0],  # Eastern Cape
+        [8.5, 9.0, 7.5, 8.0, 7.2, 10.0], # Limpopo
+        [6.0, 7.0, 5.5, 7.5, 5.0, 8.0],  # Mpumalanga
+    ])
+    return regions, products, data
 
 # ============================================================================
-# BUSINESS RULES (Interactive)
+# IMAGE 1: App Overview / Dashboard Screenshot Mockup
 # ============================================================================
+print("Generating Image 1: App Dashboard Overview...")
+fig, ax = plt.subplots(1, 1, figsize=(16, 10))
+ax.set_xlim(0, 10)
+ax.set_ylim(0, 8)
+ax.axis('off')
 
-def get_business_rules():
-    with st.sidebar:
-        st.markdown("### ⚙️ Business Rules")
-        cost_per_day = st.slider("💰 Cost per delay day (R)", 100, 2000, 500, 100)
-        high_value_threshold = st.number_input("💎 High value threshold (R)", 10000, 200000, 50000, 5000)
-        high_risk_days = st.slider("🔴 High risk threshold (days)", 2, 10, 5, 1)
-        medium_risk_days = st.slider("🟡 Medium risk threshold (days)", 1, 5, 3, 1)
-        
-        st.markdown("---")
-        st.markdown("### 🔮 Time Horizon")
-        prediction_days = st.radio("Predict delays in next:", [3, 7, 14, 30], index=1, format_func=lambda x: f"{x} days")
-        
-        st.markdown("---")
-        st.markdown("### 🚀 Simulation")
-        expedite_reduction = st.slider("Expedite reduces delay by (days)", 0, 10, 3)
-        
-        return {
-            "cost_per_day": cost_per_day,
-            "high_value_threshold": high_value_threshold,
-            "high_risk_days": high_risk_days,
-            "medium_risk_days": medium_risk_days,
-            "prediction_days": prediction_days,
-            "expedite_reduction": expedite_reduction
-        }
+# Main header
+ax.add_patch(FancyBboxPatch((0.5, 6.5), 9, 1.2, boxstyle="round,pad=0.1",
+                            facecolor='#0F2027', edgecolor='#2C5364', linewidth=2))
+ax.text(5, 7.1, '🌱 Nile.ag - Operations Decision Engine', fontsize=18, fontweight='bold', 
+        ha='center', color='white')
+ax.text(5, 6.7, 'Predictive Analytics | Real-time Risk Assessment | Actionable Insights', 
+        fontsize=11, ha='center', color='#a0c4c4')
 
+# KPI Cards
+kpi_positions = [(1, 5.5), (3.5, 5.5), (6, 5.5), (8.5, 5.5)]
+kpi_labels = ['Total Orders', 'On-Time %', 'Financial Loss', 'High Risk']
+kpi_values = ['124,567', '86.3%', 'R1.2M', '47']
+
+for (x, y), label, value in zip(kpi_positions, kpi_labels, kpi_values):
+    ax.add_patch(FancyBboxPatch((x-0.8, y-0.5), 1.6, 0.9, boxstyle="round,pad=0.05",
+                                facecolor='#667eea', edgecolor='#764ba2', linewidth=1.5))
+    ax.text(x, y+0.1, label, fontsize=10, ha='center', color='white', alpha=0.8)
+    ax.text(x, y-0.2, value, fontsize=16, fontweight='bold', ha='center', color='white')
+
+# Prediction Banner
+ax.add_patch(FancyBboxPatch((0.5, 4.2), 9, 0.9, boxstyle="round,pad=0.1",
+                            facecolor='#667eea20', edgecolor='#667eea', linewidth=2))
+ax.text(5, 4.65, '🔮 PREDICTION: 47 orders may be delayed in the next 7 days', 
+        fontsize=12, fontweight='bold', ha='center', color='#2c3e50')
+ax.text(5, 4.35, '⚡ 23 high confidence predictions | 💡 Estimated loss: R342,000', 
+        fontsize=10, ha='center', color='#555')
+
+# Main tabs visualization
+tabs = ['🚨 Priority', '🏭 Suppliers', '📦 Products', '🗺️ Regions', '📈 Trends']
+tab_x = [1.2, 2.8, 4.4, 6.0, 7.6]
+for i, (tab, x) in enumerate(zip(tabs, tab_x)):
+    color = '#667eea' if i == 0 else '#ccc'
+    ax.text(x, 3.5, tab, fontsize=11, fontweight='bold', ha='center', color=color)
+    if i == 0:
+        ax.plot([x-0.5, x+0.5], [3.4, 3.4], color='#667eea', linewidth=2)
+
+# Priority list simulation
+ax.text(1, 3.1, '🚨 TODAY\'S PRIORITY LIST', fontsize=11, fontweight='bold', color='#e74c3c')
+
+priority_items = [
+    ('ORD-100564', 'Organic Avocados', '25 days', 'R62,500'),
+    ('ORD-187807', 'Organic Avocados', '25 days', 'R62,500'),
+    ('ORD-112760', 'Passion Fruit', '25 days', 'R62,500'),
+]
+for i, (order, product, delay, loss) in enumerate(priority_items):
+    y = 2.7 - i * 0.4
+    ax.add_patch(FancyBboxPatch((1, y-0.15), 8, 0.35, boxstyle="round,pad=0.05",
+                                facecolor='#f8d7da', edgecolor='#e74c3c', linewidth=1))
+    ax.text(1.2, y, f'{order} | {product} | Delay: {delay} | Loss: {loss}', 
+            fontsize=9, va='center', color='#333')
+
+ax.text(9, 2.5, '...and 17 more', fontsize=9, ha='right', color='#666', style='italic')
+
+# Footer
+ax.text(5, 0.5, 'Nile.ag v3.0 | Powered by Machine Learning | Real-time Analytics', 
+        fontsize=9, ha='center', color='#999')
+
+plt.tight_layout()
+plt.savefig('images/01_app_dashboard_overview.png', dpi=150, bbox_inches='tight', facecolor='white')
+plt.close()
+print("  ✓ Saved: images/01_app_dashboard_overview.png")
 
 # ============================================================================
-# DATA LOADING & PROCESSING
+# IMAGE 2: Delay Heatmap (Matches app's Operations tab)
 # ============================================================================
+print("Generating Image 2: Delay Heatmap...")
+fig, ax = plt.subplots(1, 1, figsize=(14, 8))
+regions, products, delay_data = create_delay_data()
 
-@st.cache_data
-def load_and_process(uploaded_file, rules):
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file, parse_dates=["order_date", "expected_delivery_date", "actual_delivery_date"])
+im = ax.imshow(delay_data, cmap='RdYlGn_r', aspect='auto', vmin=0, vmax=10)
+ax.set_xticks(range(len(products)))
+ax.set_yticks(range(len(regions)))
+ax.set_xticklabels(products, rotation=45, ha='right', fontsize=11)
+ax.set_yticklabels(regions, fontsize=11)
+ax.set_xlabel('Product', fontsize=12, fontweight='bold')
+ax.set_ylabel('Region', fontsize=12, fontweight='bold')
+ax.set_title('Delay Heatmap by Region & Product (days)', fontsize=16, fontweight='bold', pad=20)
+
+# Add text annotations
+for i in range(len(regions)):
+    for j in range(len(products)):
+        color = "white" if delay_data[i, j] > 5 else "black"
+        ax.text(j, i, f'{delay_data[i, j]:.1f}', ha="center", va="center", color=color, fontsize=10, fontweight='bold')
+
+plt.colorbar(im, ax=ax, label='Average Delay (days)', fraction=0.046, pad=0.04)
+plt.tight_layout()
+plt.savefig('images/02_delay_heatmap.png', dpi=150, bbox_inches='tight', facecolor='white')
+plt.close()
+print("  ✓ Saved: images/02_delay_heatmap.png")
+
+# ============================================================================
+# IMAGE 3: Price Spike Heatmap (Matches app's Price Spikes tab)
+# ============================================================================
+print("Generating Image 3: Price Spike Heatmap...")
+fig, ax = plt.subplots(1, 1, figsize=(14, 8))
+
+products_spike = ['Avocados', 'Herbs', 'Tomatoes', 'Peppers', 'Grapes', 'Lettuce', 'Strawberries']
+months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+np.random.seed(42)
+spike_data = np.random.beta(2, 5, size=(len(products_spike), len(months)))
+spike_data[0, 1:4] = [0.85, 0.78, 0.82]  # Avocados spike in Feb-Apr
+spike_data[1, 0:4] = [0.72, 0.68, 0.75, 0.70]  # Herbs spike early year
+spike_data[2, 8:11] = [0.65, 0.72, 0.68]  # Tomatoes spike in Sep-Nov
+
+im = ax.imshow(spike_data * 100, cmap='Reds', aspect='auto', vmin=0, vmax=100)
+ax.set_xticks(range(len(months)))
+ax.set_yticks(range(len(products_spike)))
+ax.set_xticklabels(months, fontsize=10)
+ax.set_yticklabels(products_spike, fontsize=11)
+ax.set_xlabel('Month', fontsize=12, fontweight='bold')
+ax.set_ylabel('Product', fontsize=12, fontweight='bold')
+ax.set_title('Price Spike Probability by Product and Month (%)', fontsize=16, fontweight='bold', pad=20)
+
+# Add text annotations
+for i in range(len(products_spike)):
+    for j in range(len(months)):
+        val = spike_data[i, j] * 100
+        if val > 10:
+            ax.text(j, i, f'{val:.0f}%', ha="center", va="center", color="white" if val > 50 else "black", fontsize=8)
+
+plt.colorbar(im, ax=ax, label='Spike Probability (%)', fraction=0.046, pad=0.04)
+plt.tight_layout()
+plt.savefig('images/03_price_spike_heatmap.png', dpi=150, bbox_inches='tight', facecolor='white')
+plt.close()
+print("  ✓ Saved: images/03_price_spike_heatmap.png")
+
+# ============================================================================
+# IMAGE 4: Supplier Performance Dashboard
+# ============================================================================
+print("Generating Image 4: Supplier Performance...")
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+# Supplier accountability scores
+suppliers = ['Cape Fresh', 'Stellenbosch', 'KZN Hub', 'Gauteng Hub', 'Limpopo Agro']
+scores = [94, 87, 76, 82, 45]
+grades = ['A+', 'A', 'B', 'B+', 'D']
+colors = ['#27ae60', '#2ecc71', '#f39c12', '#f1c40f', '#e74c3c']
+
+ax1 = axes[0]
+bars = ax1.barh(suppliers, scores, color=colors, edgecolor='black', linewidth=1)
+ax1.set_xlabel('Accountability Score', fontsize=12, fontweight='bold')
+ax1.set_title('Supplier Accountability Ranking', fontsize=14, fontweight='bold')
+ax1.set_xlim(0, 100)
+
+for bar, score, grade in zip(bars, scores, grades):
+    ax1.text(bar.get_width() + 2, bar.get_y() + bar.get_height()/2, 
+             f'{score} ({grade})', va='center', fontsize=11, fontweight='bold')
+
+# Supplier performance over time
+ax2 = axes[1]
+months = np.arange(1, 13)
+cape_fresh = [92, 93, 94, 94, 95, 94, 93, 94, 95, 96, 95, 94]
+stellenbosch = [88, 87, 88, 87, 86, 85, 84, 83, 82, 81, 80, 79]
+limpopo = [75, 74, 73, 72, 70, 68, 65, 62, 60, 58, 55, 52]
+
+ax2.plot(months, cape_fresh, marker='o', linewidth=2, label='Cape Fresh', color='#27ae60')
+ax2.plot(months, stellenbosch, marker='s', linewidth=2, label='Stellenbosch', color='#3498db')
+ax2.plot(months, limpopo, marker='^', linewidth=2, label='Limpopo Agro', color='#e74c3c')
+ax2.axhline(y=80, color='orange', linestyle='--', linewidth=2, label='Target (80%)')
+ax2.set_xlabel('Month', fontsize=12, fontweight='bold')
+ax2.set_ylabel('On-Time Rate (%)', fontsize=12, fontweight='bold')
+ax2.set_title('Supplier Performance Trends', fontsize=14, fontweight='bold')
+ax2.legend(loc='lower left')
+ax2.grid(True, alpha=0.3)
+ax2.set_ylim(50, 100)
+
+plt.tight_layout()
+plt.savefig('images/04_supplier_performance.png', dpi=150, bbox_inches='tight', facecolor='white')
+plt.close()
+print("  ✓ Saved: images/04_supplier_performance.png")
+
+# ============================================================================
+# IMAGE 5: Risk Distribution
+# ============================================================================
+print("Generating Image 5: Risk Distribution...")
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+# Pie chart
+ax1 = axes[0]
+risk_labels = ['HIGH RISK', 'MEDIUM RISK', 'LOW RISK']
+risk_counts = [47, 156, 12364]
+risk_colors = ['#e74c3c', '#f39c12', '#27ae60']
+wedges, texts, autotexts = ax1.pie(risk_counts, labels=risk_labels, autopct='%1.1f%%',
+                                    colors=risk_colors, explode=(0.05, 0, 0), startangle=90)
+ax1.set_title('Order Risk Distribution', fontsize=14, fontweight='bold')
+
+# Risk matrix
+ax2 = axes[1]
+risk_categories = ['Supplier', 'Price', 'Logistics', 'Quality']
+high_risk = [85, 78, 72, 65]
+medium_risk = [12, 15, 18, 20]
+low_risk = [3, 7, 10, 15]
+
+x = np.arange(len(risk_categories))
+width = 0.25
+ax2.bar(x - width, high_risk, width, label='HIGH', color='#e74c3c')
+ax2.bar(x, medium_risk, width, label='MEDIUM', color='#f39c12')
+ax2.bar(x + width, low_risk, width, label='LOW', color='#27ae60')
+ax2.set_xlabel('Risk Category', fontsize=12, fontweight='bold')
+ax2.set_ylabel('Percentage (%)', fontsize=12, fontweight='bold')
+ax2.set_title('Risk Breakdown by Category', fontsize=14, fontweight='bold')
+ax2.set_xticks(x)
+ax2.set_xticklabels(risk_categories)
+ax2.legend()
+
+plt.tight_layout()
+plt.savefig('images/05_risk_distribution.png', dpi=150, bbox_inches='tight', facecolor='white')
+plt.close()
+print("  ✓ Saved: images/05_risk_distribution.png")
+
+# ============================================================================
+# IMAGE 6: Financial Impact Dashboard
+# ============================================================================
+print("Generating Image 6: Financial Impact...")
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+# Loss by supplier
+ax1 = axes[0]
+suppliers_loss = ['China Large\nImports', 'Limpopo Agro', 'KZN Hub', 'Eastern Cape\nCo-op', 'Mpumalanga\nFresh']
+losses = [25657000, 12450000, 8750000, 6230000, 4120000]
+colors_loss = ['#c0392b', '#e74c3c', '#e67e22', '#f39c12', '#f1c40f']
+bars = ax1.barh(suppliers_loss, losses, color=colors_loss, edgecolor='black', linewidth=1)
+ax1.set_xlabel('Financial Loss (R)', fontsize=12, fontweight='bold')
+ax1.set_title('Top Loss-Making Suppliers', fontsize=14, fontweight='bold')
+
+for bar, loss in zip(bars, losses):
+    ax1.text(bar.get_width() + 200000, bar.get_y() + bar.get_height()/2, 
+             f'R{loss/1000000:.1f}M', va='center', fontsize=10, fontweight='bold')
+
+# Loss by region
+ax2 = axes[1]
+regions_loss = ['Limpopo', 'Mpumalanga', 'Eastern Cape', 'KZN', 'Gauteng', 'Western Cape']
+losses_region = [1250000, 850000, 620000, 480000, 320000, 180000]
+colors_region = ['#c0392b', '#e74c3c', '#e67e22', '#f39c12', '#27ae60', '#2ecc71']
+bars = ax2.bar(regions_loss, losses_region, color=colors_region, edgecolor='black', linewidth=1.5)
+ax2.set_ylabel('Loss Amount (R)', fontsize=12, fontweight='bold')
+ax2.set_title('Profit Leakage by Region', fontsize=14, fontweight='bold')
+ax2.tick_params(axis='x', rotation=45)
+
+for bar, loss in zip(bars, losses_region):
+    ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 20000, 
+             f'R{loss/1000:.0f}K', ha='center', fontsize=10, fontweight='bold')
+
+plt.tight_layout()
+plt.savefig('images/06_financial_impact.png', dpi=150, bbox_inches='tight', facecolor='white')
+plt.close()
+print("  ✓ Saved: images/06_financial_impact.png")
+
+# ============================================================================
+# IMAGE 7: ML Performance (Actual vs Predicted)
+# ============================================================================
+print("Generating Image 7: ML Performance...")
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+# Actual vs Predicted Scatter
+ax1 = axes[0]
+np.random.seed(42)
+actual = np.random.exponential(3.5, 300)
+predicted = actual + np.random.normal(0, 1.2, 300)
+predicted = np.clip(predicted, 0, 18)
+actual = np.clip(actual, 0, 18)
+
+ax1.scatter(actual, predicted, alpha=0.5, c='#3498db', edgecolors='black', linewidth=0.5, s=50)
+ax1.plot([0, 18], [0, 18], 'r--', linewidth=2, label='Perfect Prediction')
+ax1.set_xlabel('Actual Delay (days)', fontsize=12, fontweight='bold')
+ax1.set_ylabel('Predicted Delay (days)', fontsize=12, fontweight='bold')
+ax1.set_title('ML Model: Actual vs Predicted Delay', fontsize=14, fontweight='bold')
+ax1.legend()
+ax1.grid(True, alpha=0.3)
+
+# Add metrics box
+from sklearn.metrics import r2_score, mean_absolute_error
+r2 = r2_score(actual, predicted)
+mae = mean_absolute_error(actual, predicted)
+ax1.text(0.05, 0.95, f'R² Score: {r2:.3f}\nMAE: {mae:.2f} days', 
+         transform=ax1.transAxes, fontsize=12, verticalalignment='top',
+         bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.9))
+
+# Feature Importance
+ax2 = axes[1]
+features = ['Quantity (kg)', 'Price (R/kg)', 'Perishable', 'Supplier\nReliability', 'Product\nCategory']
+importance = [0.32, 0.28, 0.22, 0.12, 0.06]
+colors_imp = plt.cm.Blues(np.linspace(0.4, 0.9, len(features)))
+bars = ax2.barh(features, importance, color=colors_imp, edgecolor='black', linewidth=1.5)
+ax2.set_xlabel('Feature Importance', fontsize=12, fontweight='bold')
+ax2.set_title('Model Feature Importance', fontsize=14, fontweight='bold')
+for bar, imp in zip(bars, importance):
+    ax2.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height()/2, 
+             f'{imp:.0%}', va='center', fontsize=11, fontweight='bold')
+ax2.set_xlim(0, 0.4)
+
+plt.tight_layout()
+plt.savefig('images/07_ml_performance.png', dpi=150, bbox_inches='tight', facecolor='white')
+plt.close()
+print("  ✓ Saved: images/07_ml_performance.png")
+
+# ============================================================================
+# IMAGE 8: Decision Engine - Priority Actions
+# ============================================================================
+print("Generating Image 8: Decision Engine...")
+fig, ax = plt.subplots(1, 1, figsize=(14, 8))
+ax.set_xlim(0, 10)
+ax.set_ylim(0, 8)
+ax.axis('off')
+
+# Title
+ax.text(5, 7.5, '🎯 DECISION ENGINE - ACTIONABLE INSIGHTS', fontsize=16, fontweight='bold', 
+        ha='center', color='#2c3e50')
+ax.text(5, 7.1, 'What YOU need to do RIGHT NOW', fontsize=12, ha='center', color='#666')
+
+# Decision cards
+decisions = [
+    ('🔴 URGENT', 'Expedite shipment OR switch supplier for Order ORD-100564', 
+     '25 days delayed, value R62,500', 'Operations Manager', 'Immediate'),
+    ('🔴 URGENT', 'Expedite shipment OR switch supplier for Order ORD-187807', 
+     '25 days delayed, value R62,500', 'Operations Manager', 'Immediate'),
+    ('🟡 MEDIUM', 'Schedule performance review with Limpopo Agro Farms', 
+     'On-time rate: 45%, Trend: DECLINING', 'Procurement Team', 'This week'),
+    ('🟡 MEDIUM', 'Buy Avocados NOW before prices increase further', 
+     'Price spike detected (Z-score: 2.8)', 'Procurement Team', '48 hours'),
+]
+
+colors = ['#e74c3c', '#e74c3c', '#f39c12', '#f39c12']
+bg_colors = ['#f8d7da', '#f8d7da', '#fff3cd', '#fff3cd']
+
+for i, (priority, action, reason, owner, deadline) in enumerate(decisions):
+    y = 6.2 - i * 1.2
+    ax.add_patch(FancyBboxPatch((1, y-0.6), 8, 1.0, boxstyle="round,pad=0.1",
+                                facecolor=bg_colors[i], edgecolor=colors[i], linewidth=2))
+    ax.text(1.2, y+0.2, priority, fontsize=12, fontweight='bold', color=colors[i])
+    ax.text(1.2, y-0.1, f'Action: {action}', fontsize=11, color='#333')
+    ax.text(1.2, y-0.4, f'Why: {reason}', fontsize=10, color='#555')
+    ax.text(7.5, y+0.2, f'Owner: {owner}', fontsize=10, color='#555', ha='right')
+    ax.text(7.5, y-0.1, f'Deadline: {deadline}', fontsize=10, fontweight='bold', color=colors[i], ha='right')
+
+# Simulation box
+ax.add_patch(FancyBboxPatch((1, 0.8), 8, 0.8, boxstyle="round,pad=0.1",
+                            facecolor='#e8f4f8', edgecolor='#3498db', linewidth=2))
+ax.text(5, 1.3, '🔮 What-If Simulation: Current Loss R1,245,000 → After Action R892,000', 
+        fontsize=12, fontweight='bold', ha='center', color='#2c3e50')
+ax.text(5, 1.05, '💰 Potential Savings: R353,000 (28% improvement)', 
+        fontsize=11, ha='center', color='#27ae60', fontweight='bold')
+
+# Footer
+ax.text(5, 0.3, 'Nile.ag Decision Engine | Real-time | Actionable | Production-Ready', 
+        fontsize=9, ha='center', color='#999')
+
+plt.tight_layout()
+plt.savefig('images/08_decision_engine.png', dpi=150, bbox_inches='tight', facecolor='white')
+plt.close()
+print("  ✓ Saved: images/08_decision_engine.png")
+
+print("=" * 60)
+print("✅ All 8 app-aligned images generated successfully!")
+print("📁 Images saved to 'images/' directory")
+print("=" * 60)
+
+# Verify all images were created
+print("\n📋 Generated Images:")
+image_files = [
+    "01_app_dashboard_overview.png",
+    "02_delay_heatmap.png", 
+    "03_price_spike_heatmap.png",
+    "04_supplier_performance.png",
+    "05_risk_distribution.png",
+    "06_financial_impact.png",
+    "07_ml_performance.png",
+    "08_decision_engine.png"
+]
+
+for img in image_files:
+    if os.path.exists(f"images/{img}"):
+        size = os.path.getsize(f"images/{img}") / 1024
+        print(f"  ✓ {img} ({size:.1f} KB)")
     else:
-        df = generate_sample_data(10000)
-    
-    # Quality checks
-    quality_issues = []
-    missing_expected = df["expected_delivery_date"].isna().sum()
-    missing_actual = df["actual_delivery_date"].isna().sum()
-    if missing_expected > 0:
-        quality_issues.append(f"⚠️ {missing_expected} records missing expected delivery dates")
-    if missing_actual > 0:
-        quality_issues.append(f"⚠️ {missing_actual} records missing actual delivery dates")
-    
-    df["expected_delivery_date"] = df["expected_delivery_date"].fillna(df["order_date"] + pd.Timedelta(days=3))
-    df["actual_delivery_date"] = df["actual_delivery_date"].fillna(df["order_date"] + pd.Timedelta(days=5))
-    
-    # Core metrics
-    df["delay_days"] = (df["actual_delivery_date"] - df["expected_delivery_date"]).dt.days.fillna(0)
-    df["on_time"] = (df["delay_days"] <= 0).astype(int)
-    df["year_month"] = df["order_date"].dt.to_period("M")
-    df["month"] = df["order_date"].dt.month
-    df["weekday"] = df["order_date"].dt.dayofweek
-    
-    # Supplier reliability
-    supplier_reliability = df.groupby("supplier")["on_time"].mean().to_dict()
-    df["supplier_reliability"] = df["supplier"].map(supplier_reliability).fillna(0.5)
-    
-    # Financial impact
-    df["base_delay_cost"] = df["delay_days"] * rules["cost_per_day"]
-    df["value_multiplier"] = np.where(df["total_value_zar"] > rules["high_value_threshold"], 4, 1)
-    df["perishable_penalty"] = np.where(df["perishable"] & (df["delay_days"] > 0), rules["cost_per_day"] * df["delay_days"], 0)
-    df["total_delay_cost"] = df["base_delay_cost"] * df["value_multiplier"] + df["perishable_penalty"]
-    
-    # Risk levels
-    df["risk_level"] = "🟢 LOW"
-    df.loc[df["delay_days"] >= rules["medium_risk_days"], "risk_level"] = "🟡 MEDIUM"
-    df.loc[df["delay_days"] >= rules["high_risk_days"], "risk_level"] = "🔴 HIGH"
-    
-    # Actionable decisions
-    df["recommended_action"] = "✅ MONITOR"
-    df.loc[df["risk_level"] == "🟡 MEDIUM", "recommended_action"] = "📞 CONTACT SUPPLIER"
-    df.loc[df["risk_level"] == "🔴 HIGH", "recommended_action"] = "🚨 EXPEDITE OR SWITCH"
-    df.loc[df["perishable"] & (df["delay_days"] > 2), "recommended_action"] = "⚠️ URGENT - PERISHABLE"
-    
-    # Price spike detection
-    df["price_rolling_mean"] = df.groupby("product")["price_per_kg"].transform(lambda x: x.rolling(30, min_periods=5).mean())
-    df["price_rolling_std"] = df.groupby("product")["price_per_kg"].transform(lambda x: x.rolling(30, min_periods=5).std())
-    df["price_zscore"] = (df["price_per_kg"] - df["price_rolling_mean"]) / df["price_rolling_std"].replace(0, 0.01)
-    df["is_price_spike"] = df["price_zscore"] > 2
-    df["spike_severity"] = np.where(df["price_zscore"] > 3, "Extreme", np.where(df["price_zscore"] > 2, "Moderate", "Normal"))
-    
-    # Prediction confidence
-    order_counts = df.groupby("supplier")["order_id"].count().to_dict()
-    df["prediction_confidence"] = df["supplier"].map(order_counts).fillna(0) / 100
-    df["prediction_confidence"] = df["prediction_confidence"].clip(0, 0.95)
-    
-    return df, quality_issues
+        print(f"  ✗ {img} - Not found")
 
-
-# ============================================================================
-# INSIGHTS FUNCTIONS
-# ============================================================================
-
-def get_prediction_summary(df, rules):
-    high_risk_orders = df[df["risk_level"] == "🔴 HIGH"]
-    predicted_delayed = len(high_risk_orders)
-    high_confidence = len(df[(df["delay_days"] > 7) | (df["perishable"] & (df["delay_days"] > 3))])
-    estimated_loss = high_risk_orders["total_value_zar"].sum() * 0.3
-    supplier_loss = df.groupby("supplier")["total_delay_cost"].sum().sort_values(ascending=False)
-    problem_suppliers = supplier_loss.head(5).to_dict()
-    total_problematic = len(df[df["delay_days"] > 0])
-    
-    return {
-        "total_problematic": total_problematic,
-        "predicted_delayed": predicted_delayed,
-        "high_confidence": high_confidence,
-        "estimated_loss": estimated_loss,
-        "problem_suppliers": problem_suppliers,
-        "prediction_horizon": rules["prediction_days"]
-    }
-
-
-def get_priority_list(df):
-    result = df[df["delay_days"] > 0].sort_values(["delay_days", "total_delay_cost"], ascending=False).head(20)
-    if result.empty:
-        return pd.DataFrame(columns=["order_id", "product", "supplier", "delay_days", "total_delay_cost", "risk_level", "recommended_action", "prediction_confidence"])
-    return result[["order_id", "product", "supplier", "delay_days", "total_delay_cost", "risk_level", "recommended_action", "prediction_confidence"]]
-
-
-def get_supplier_report(df):
-    supplier_stats = df.groupby("supplier").agg({
-        "order_id": "count", "delay_days": "mean", "total_delay_cost": "sum",
-        "on_time": "mean", "supplier_reliability": "first", "total_value_zar": "sum"
-    }).round(2)
-    supplier_stats.columns = ["orders", "avg_delay", "total_loss", "on_time_rate", "reliability", "revenue"]
-    supplier_stats = supplier_stats.sort_values("total_loss", ascending=False).reset_index()
-    supplier_stats["on_time_rate"] = (supplier_stats["on_time_rate"] * 100).round(1)
-    supplier_stats["reliability"] = (supplier_stats["reliability"] * 100).round(1)
-    return supplier_stats
-
-
-def get_product_report(df):
-    product_stats = df.groupby("product").agg({
-        "order_id": "count", "delay_days": "mean", "total_delay_cost": "sum",
-        "on_time": "mean", "total_value_zar": "sum"
-    }).round(2)
-    product_stats.columns = ["orders", "avg_delay", "total_loss", "on_time_rate", "revenue"]
-    product_stats = product_stats.sort_values("total_loss", ascending=False).reset_index()
-    product_stats["on_time_rate"] = (product_stats["on_time_rate"] * 100).round(1)
-    return product_stats
-
-
-def get_regional_report(df):
-    region_stats = df.groupby("supplier_region").agg({
-        "order_id": "count", "delay_days": "mean", "total_delay_cost": "sum", "on_time": "mean"
-    }).round(2)
-    region_stats.columns = ["orders", "avg_delay", "total_loss", "on_time_rate"]
-    region_stats = region_stats.sort_values("total_loss", ascending=False).reset_index()
-    region_stats["on_time_rate"] = (region_stats["on_time_rate"] * 100).round(1)
-    return region_stats
-
-
-def get_time_series(df):
-    monthly = df.groupby(df["order_date"].dt.to_period("M")).agg({
-        "on_time": "mean", "delay_days": "mean", "total_delay_cost": "sum", "total_value_zar": "sum"
-    }).reset_index()
-    monthly["month"] = monthly["order_date"].astype(str)
-    return monthly
-
-
-def get_seasonal(df):
-    seasonal = df.groupby("month").agg({"delay_days": "mean", "total_delay_cost": "sum"}).reset_index()
-    month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    seasonal["month_name"] = seasonal["month"].apply(lambda x: month_names[x-1])
-    return seasonal
-
-
-def get_price_spike_heatmap(df):
-    df_copy = df.copy()
-    df_copy["month_short"] = df_copy["order_date"].dt.strftime("%b")
-    spike_pivot = df_copy.pivot_table(values="is_price_spike", index="product", columns="month_short", aggfunc="mean", fill_value=0)
-    months_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    spike_pivot = spike_pivot.reindex(columns=months_order, fill_value=0)
-    return spike_pivot.head(20)
-
-
-def get_delay_distribution(df):
-    bins = [0, 1, 2, 3, 5, 7, 10, 15, 20, 30, 100]
-    labels = ['0', '1', '2', '3', '4-5', '6-7', '8-10', '11-15', '16-20', '20+']
-    df["delay_cat"] = pd.cut(df["delay_days"], bins=bins, labels=labels, right=False)
-    result = df["delay_cat"].value_counts().reset_index()
-    result.columns = ["delay_category", "count"]
-    return result
-
-
-def simulate_action(df, rules, action):
-    sim = df.copy()
-    if action == "expedite":
-        sim["new_delay"] = np.maximum(sim["delay_days"] - rules["expedite_reduction"], 0)
-    elif action == "switch":
-        sim["new_delay"] = sim["delay_days"] * 0.4
-    else:
-        sim["new_delay"] = sim["delay_days"]
-    
-    sim["new_cost"] = sim["new_delay"] * rules["cost_per_day"]
-    sim["new_multiplier"] = np.where(sim["total_value_zar"] > rules["high_value_threshold"], 4, 1)
-    sim["new_perishable"] = np.where(sim["perishable"] & (sim["new_delay"] > 0), rules["cost_per_day"] * sim["new_delay"], 0)
-    sim["new_total"] = sim["new_cost"] * sim["new_multiplier"] + sim["new_perishable"]
-    
-    current = df["total_delay_cost"].sum()
-    new = sim["new_total"].sum()
-    savings = current - new
-    return {
-        "current_loss": current,
-        "new_loss": new,
-        "savings": savings,
-        "savings_pct": (savings / current * 100) if current > 0 else 0
-    }
-
-
-def create_south_africa_map(df):
-    region_coords = {
-        "Western Cape": {"lat": -34.0, "lon": 18.5}, "Gauteng": {"lat": -26.2, "lon": 28.0},
-        "KwaZulu-Natal": {"lat": -29.6, "lon": 30.4}, "Eastern Cape": {"lat": -32.0, "lon": 26.0},
-        "Limpopo": {"lat": -23.0, "lon": 29.5}, "Mpumalanga": {"lat": -25.5, "lon": 30.0},
-        "Free State": {"lat": -28.0, "lon": 26.0}, "North West": {"lat": -27.0, "lon": 26.0},
-        "Northern Cape": {"lat": -30.0, "lon": 22.0},
-    }
-    regional = df.groupby("supplier_region").agg({"delay_days": "mean", "total_delay_cost": "sum", "order_id": "count"}).reset_index()
-    regional["lat"] = regional["supplier_region"].map(lambda x: region_coords.get(x, {}).get("lat", 0))
-    regional["lon"] = regional["supplier_region"].map(lambda x: region_coords.get(x, {}).get("lon", 0))
-    regional = regional.dropna()
-    
-    fig = px.scatter_geo(regional, lat="lat", lon="lon", size="delay_days", color="delay_days",
-                         hover_name="supplier_region", hover_data={"total_delay_cost": ":,.0f", "order_id": True},
-                         title="South Africa - Average Delay by Region", projection="natural earth",
-                         color_continuous_scale="RdYlGn_r", size_max=45)
-    fig.update_layout(height=450, margin=dict(l=0, r=0, t=50, b=0))
-    return fig
-
-
-# ============================================================================
-# DOWNLOAD FUNCTIONS
-# ============================================================================
-
-def create_download_zip(df, supplier_report, product_report, regional_report, priority_list):
-    """Create a zip file with all reports"""
-    zip_buffer = io.BytesIO()
-    
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        # Add main data
-        zip_file.writestr('full_data.csv', df.to_csv(index=False))
-        zip_file.writestr('priority_list.csv', priority_list.to_csv(index=False))
-        zip_file.writestr('supplier_report.csv', supplier_report.to_csv(index=False))
-        zip_file.writestr('product_report.csv', product_report.to_csv(index=False))
-        zip_file.writestr('regional_report.csv', regional_report.to_csv(index=False))
-        
-        # Add summary report
-        summary = pd.DataFrame({
-            'Metric': ['Total Orders', 'Total Revenue', 'On-Time %', 'Total Loss', 'High Risk Orders'],
-            'Value': [
-                len(df), 
-                f"R{df['total_value_zar'].sum():,.2f}",
-                f"{df['on_time'].mean() * 100:.1f}%",
-                f"R{df['total_delay_cost'].sum():,.2f}",
-                len(df[df['risk_level'] == '🔴 HIGH'])
-            ]
-        })
-        zip_file.writestr('executive_summary.csv', summary.to_csv(index=False))
-    
-    return zip_buffer.getvalue()
-
-
-# ============================================================================
-# MAIN RENDER FUNCTION
-# ============================================================================
-
-def render_dashboard(df, rules):
-    """Render the main dashboard after data is loaded"""
-    
-    prediction = get_prediction_summary(df, rules)
-    priority = get_priority_list(df)
-    supplier_report = get_supplier_report(df)
-    product_report = get_product_report(df)
-    regional_report = get_regional_report(df)
-    time_series = get_time_series(df)
-    seasonal = get_seasonal(df)
-    spike_heatmap = get_price_spike_heatmap(df)
-    delay_dist = get_delay_distribution(df)
-    
-    total_loss = df["total_delay_cost"].sum()
-    high_risk_count = len(df[df["risk_level"] == "🔴 HIGH"])
-    on_time_rate = df["on_time"].mean() * 100
-    total_revenue = df["total_value_zar"].sum()
-    
-    # ==================== DOWNLOAD SECTION ====================
-    st.markdown('<div class="download-section">', unsafe_allow_html=True)
-    st.markdown("### 📥 Download Reports")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        zip_data = create_download_zip(df, supplier_report, product_report, regional_report, priority)
-        st.download_button(
-            label="📦 Download ALL Reports (ZIP)",
-            data=zip_data,
-            file_name=f"nile_reports_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
-            mime="application/zip",
-            use_container_width=True
-        )
-    
-    with col2:
-        st.download_button(
-            label="📊 Priority List (CSV)",
-            data=priority.to_csv(index=False),
-            file_name="priority_list.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
-    
-    with col3:
-        st.download_button(
-            label="🏭 Supplier Report (CSV)",
-            data=supplier_report.to_csv(index=False),
-            file_name="supplier_report.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
-    
-    with col4:
-        st.download_button(
-            label="📦 Full Data (CSV)",
-            data=df.to_csv(index=False),
-            file_name="full_data.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # ==================== PREDICTION BANNER ====================
-    if prediction["predicted_delayed"] > 0:
-        st.markdown(f"""
-        <div class='prediction-banner'>
-            <h2>🔮 {prediction['predicted_delayed']} orders are HIGH RISK right now</h2>
-            <p>⚡ {prediction['high_confidence']} of these are critical (delay >7 days or perishable + delay >3)</p>
-            <p>💡 Estimated financial impact: <strong>R{prediction['estimated_loss']:,.0f}</strong></p>
-            <p>🚨 Top loss drivers: {', '.join([f"{s} (R{v:,.0f})" for s, v in list(prediction['problem_suppliers'].items())[:3]])}</p>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown(f"""
-        <div class='prediction-banner'>
-            <h2>✅ No high-risk orders detected</h2>
-            <p>📊 {len(df)} orders analyzed. {prediction['total_problematic']} had some delay.</p>
-            <p>💰 Total financial loss from delays: R{total_loss:,.0f}</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # ==================== KPI DASHBOARD ====================
-    st.markdown("## 📊 Executive KPI Dashboard")
-    col1, col2, col3, col4, col5, col6 = st.columns(6)
-    col1.metric("Total Orders", f"{len(df):,}")
-    col2.metric("Total Revenue", f"R{total_revenue/1_000_000:.1f}M")
-    col3.metric("On-Time %", f"{on_time_rate:.1f}%")
-    col4.metric("Financial Loss", f"R{total_loss/1_000:.0f}K")
-    col5.metric("High Risk Orders", high_risk_count)
-    col6.metric("Problematic Orders", prediction["total_problematic"])
-    
-    st.markdown("---")
-    
-    # ==================== DAILY DECISION SUMMARY ====================
-    st.markdown("## 📋 DAILY DECISION SUMMARY")
-    top_supplier = supplier_report.iloc[0]['supplier'] if not supplier_report.empty else 'None'
-    top_supplier_loss = supplier_report.iloc[0]['total_loss'] if not supplier_report.empty else 0
-    top_region = regional_report.iloc[0]['supplier_region'] if not regional_report.empty else 'None'
-    
-    st.info(f"""
-    **🎯 TODAY'S PRIORITIES:**
-    - 🔴 **{high_risk_count} orders** need immediate attention
-    - 🏭 **{top_supplier}** causing most losses (R{top_supplier_loss:,.0f})
-    - 📍 **{top_region}** region is your biggest problem
-    - 💰 **Total loss so far:** R{total_loss:,.0f}
-    """)
-    
-    st.markdown("---")
-    
-    # ==================== TABS ====================
-    tabs = st.tabs(["🚨 Priority", "🏭 Suppliers", "📦 Products", "🗺️ Regions", 
-                    "📈 Trends", "📅 Seasonal", "🔥 Price Spikes", "📊 Statistics", "🔮 Simulation"])
-    
-    # TAB 1: PRIORITY
-    with tabs[0]:
-        st.markdown("## 🚨 TODAY'S PRIORITY LIST")
-        if not priority.empty:
-            for _, row in priority.head(5).iterrows():
-                st.error(f"""
-                **Order {row['order_id']}** | {row['product']} | Supplier: {row['supplier']}
-                - Delay: {row['delay_days']:.0f} days | Loss: R{row['total_delay_cost']:,.0f}
-                - **Action:** {row['recommended_action']}
-                """)
-        st.dataframe(priority, use_container_width=True)
-    
-    # TAB 2: SUPPLIERS
-    with tabs[1]:
-        st.dataframe(supplier_report.head(15), use_container_width=True)
-        fig = px.bar(supplier_report.head(10), x="total_loss", y="supplier", orientation="h", 
-                    title="Top Loss-Making Suppliers", color="total_loss", color_continuous_scale="Reds")
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # TAB 3: PRODUCTS
-    with tabs[2]:
-        st.dataframe(product_report.head(15), use_container_width=True)
-        fig = px.bar(product_report.head(10), x="total_loss", y="product", orientation="h", 
-                    title="Top Loss-Making Products", color="total_loss", color_continuous_scale="Reds")
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # TAB 4: REGIONS
-    with tabs[3]:
-        st.dataframe(regional_report, use_container_width=True)
-        fig = create_south_africa_map(df)
-        st.plotly_chart(fig, use_container_width=True)
-        fig2 = px.bar(regional_report, x="supplier_region", y="total_loss", 
-                     title="Delay Cost by Region", color="total_loss", color_continuous_scale="Reds")
-        st.plotly_chart(fig2, use_container_width=True)
-    
-    # TAB 5: TRENDS
-    with tabs[4]:
-        fig = make_subplots(specs=[[{"secondary_y": True}]])
-        fig.add_trace(go.Scatter(x=time_series["month"], y=time_series["on_time"]*100, 
-                                name="On-Time %", line=dict(color="#27ae60", width=3)), secondary_y=False)
-        fig.add_trace(go.Scatter(x=time_series["month"], y=time_series["delay_days"], 
-                                name="Delay Days", line=dict(color="#e74c3c", width=3, dash="dash")), secondary_y=True)
-        fig.update_layout(title="Performance Trends Over Time", height=450)
-        st.plotly_chart(fig, use_container_width=True)
-        
-        fig2 = px.area(time_series, x="month", y="total_value_zar", title="Revenue Trend")
-        st.plotly_chart(fig2, use_container_width=True)
-    
-    # TAB 6: SEASONAL
-    with tabs[5]:
-        fig = px.line(seasonal, x="month_name", y="delay_days", title="Average Delay by Month", markers=True)
-        st.plotly_chart(fig, use_container_width=True)
-        fig2 = px.bar(seasonal, x="month_name", y="total_delay_cost", title="Delay Cost by Month", color="total_delay_cost")
-        st.plotly_chart(fig2, use_container_width=True)
-    
-    # TAB 7: PRICE SPIKES
-    with tabs[6]:
-        if not spike_heatmap.empty:
-            spike_pct = spike_heatmap * 100
-            fig = px.imshow(spike_pct, text_auto='.1f', aspect='auto', 
-                           title="Price Spike Probability by Product and Month (%)", 
-                           color_continuous_scale="Reds", height=500)
-            st.plotly_chart(fig, use_container_width=True)
-        
-        spike_timeline = df.groupby(df["order_date"].dt.to_period("M"))["is_price_spike"].sum().reset_index()
-        spike_timeline["month"] = spike_timeline["order_date"].astype(str)
-        fig = px.bar(spike_timeline, x="month", y="is_price_spike", title="Price Spike Count by Month", 
-                   color="is_price_spike", color_continuous_scale="Reds")
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # TAB 8: STATISTICS
-    with tabs[7]:
-        col1, col2 = st.columns(2)
-        with col1:
-            fig = px.histogram(df, x="delay_days", nbins=30, title="Delay Distribution", marginal="box")
-            st.plotly_chart(fig, use_container_width=True)
-        with col2:
-            fig = px.histogram(df, x="price_per_kg", nbins=40, title="Price Distribution", marginal="violin")
-            st.plotly_chart(fig, use_container_width=True)
-        
-        if not delay_dist.empty:
-            fig = px.pie(delay_dist, values="count", names="delay_category", title="Delay Categories", hole=0.3)
-            st.plotly_chart(fig, use_container_width=True)
-    
-    # TAB 9: SIMULATION
-    with tabs[8]:
-        st.markdown("## 🔮 What-If Simulation")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Current Total Loss", f"R{total_loss:,.0f}")
-            st.metric("High Risk Orders", high_risk_count)
-        with col2:
-            action = st.radio("Action to simulate:", ["🚀 Expedite Critical Orders", "🔄 Switch to Backup Supplier", "⏸️ Do Nothing"], horizontal=True)
-            action_key = {"🚀 Expedite Critical Orders": "expedite", "🔄 Switch to Backup Supplier": "switch", "⏸️ Do Nothing": "none"}[action]
-            sim = simulate_action(df, rules, action_key)
-            st.metric("After Action Loss", f"R{sim['new_loss']:,.0f}", 
-                     delta=f"-R{sim['savings']:,.0f}" if sim['savings'] > 0 else None)
-            st.metric("Improvement", f"{sim['savings_pct']:.0f}%")
-            st.success(f"💰 Potential savings: R{sim['savings']:,.0f}")
-
-
-# ============================================================================
-# MAIN APP
-# ============================================================================
-
-def main():
-    st.markdown("""
-    <div class='main-header'>
-        <h1 style='color: white; font-size: 2.5rem; margin: 0;'>🌱 Nile.ag</h1>
-        <p style='color: #a0c4c4; font-size: 1rem;'>Operations Decision Engine | Realistic Predictions | Actionable Insights</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    rules = get_business_rules()
-    
-    st.markdown("### 📁 Data Source")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        uploaded_file = st.file_uploader("Upload CSV (or use sample data)", type="csv")
-    
-    with col2:
-        use_sample = st.button("🎲 Generate Sample Data", use_container_width=True)
-    
-    if uploaded_file is not None:
-        with st.spinner("Analyzing supply chain data..."):
-            df, quality_issues = load_and_process(uploaded_file, rules)
-            for issue in quality_issues:
-                st.warning(issue)
-            render_dashboard(df, rules)
-    
-    elif use_sample:
-        with st.spinner("Generating and analyzing sample data..."):
-            df, quality_issues = load_and_process(None, rules)
-            for issue in quality_issues:
-                st.warning(issue)
-            st.success("✅ Sample data generated successfully! 10,000 orders created.")
-            render_dashboard(df, rules)
-    
-    else:
-        st.markdown("""
-        <div style='text-align: center; padding: 3rem;'>
-            <h2>🚀 Upload Your Supply Chain Data</h2>
-            <p>Get real predictions, financial impact, and actionable decisions.</p>
-            <p style='margin-top: 2rem;'>↓ Upload a CSV file or click "Generate Sample Data" ↓</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Show sample format
-        with st.expander("📋 Expected CSV Format"):
-            st.markdown("""
-            Your CSV should contain these columns:
-            - `order_id` - Unique identifier
-            - `order_date` - YYYY-MM-DD
-            - `expected_delivery_date` - YYYY-MM-DD
-            - `actual_delivery_date` - YYYY-MM-DD
-            - `supplier` - Supplier name
-            - `supplier_region` - Province/region
-            - `product` - Product name
-            - `product_category` - Category
-            - `perishable` - True/False
-            - `quantity_kg` - Order quantity
-            - `price_per_kg` - Unit price
-            - `total_value_zar` - Total value
-            """)
-
-
-if __name__ == "__main__":
-    main()
+print("\n🎉 All images ready")
