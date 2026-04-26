@@ -1,4 +1,5 @@
-# app.py - NILE.AG FINAL PRODUCTION READY (ALL ERRORS FIXED)
+# app.py - NILE.AG COMPLETE PRODUCTION READY
+# Includes automatic data generation, all charts, and decision engine
 
 import streamlit as st
 import pandas as pd
@@ -9,6 +10,7 @@ import warnings
 from datetime import datetime, timedelta
 import os
 from plotly.subplots import make_subplots
+import random
 
 warnings.filterwarnings('ignore')
 
@@ -50,6 +52,133 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ============================================================================
+# DATA GENERATOR (AUTOMATIC)
+# ============================================================================
+
+def generate_sample_data(n_orders=5000):
+    """Generate realistic sample data on the fly"""
+    
+    np.random.seed(42)
+    random.seed(42)
+    
+    start_date = datetime(2022, 1, 1)
+    end_date = datetime(2024, 12, 31)
+    
+    products = {
+        "Tomatoes": {"cat": "Vegetables", "perish": True, "base": 12},
+        "Lettuce": {"cat": "Vegetables", "perish": True, "base": 10},
+        "Spinach": {"cat": "Vegetables", "perish": True, "base": 15},
+        "Potatoes": {"cat": "Roots", "perish": False, "base": 7},
+        "Onions": {"cat": "Roots", "perish": False, "base": 8},
+        "Apples": {"cat": "Fruits", "perish": False, "base": 20},
+        "Bananas": {"cat": "Fruits", "perish": True, "base": 10},
+        "Avocados": {"cat": "Fruits", "perish": True, "base": 35},
+        "Oranges": {"cat": "Fruits", "perish": False, "base": 18},
+        "Mangoes": {"cat": "Fruits", "perish": True, "base": 22},
+        "Grapes": {"cat": "Fruits", "perish": True, "base": 32},
+        "Herbs": {"cat": "Herbs", "perish": True, "base": 40},
+        "Peppers": {"cat": "Vegetables", "perish": True, "base": 18},
+        "Garlic": {"cat": "Roots", "perish": False, "base": 50},
+        "Ginger": {"cat": "Roots", "perish": False, "base": 45},
+    }
+    
+    suppliers = [
+        ("Cape Fresh Farms", "Western Cape", 0.92),
+        ("Stellenbosch Harvest", "Western Cape", 0.90),
+        ("Limpopo Agro Farms", "Limpopo", 0.72),
+        ("Bushveld Produce", "Limpopo", 0.68),
+        ("KZN Fresh Hub", "KwaZulu-Natal", 0.82),
+        ("Durban Traders", "KwaZulu-Natal", 0.84),
+        ("Eastern Cape Co-op", "Eastern Cape", 0.76),
+        ("Karoo Fresh", "Eastern Cape", 0.72),
+        ("Gauteng Market Hub", "Gauteng", 0.88),
+        ("Joburg Distributors", "Gauteng", 0.86),
+        ("Mpumalanga Fresh", "Mpumalanga", 0.78),
+        ("Lowveld Growers", "Mpumalanga", 0.75),
+        ("Free State Grain", "Free State", 0.82),
+        ("North West Agri", "North West", 0.78),
+        ("Northern Cape Fresh", "Northern Cape", 0.72),
+    ]
+    
+    region_penalty = {
+        "Western Cape": 0, "Gauteng": 0, "KwaZulu-Natal": 1,
+        "Eastern Cape": 2, "Mpumalanga": 2, "Limpopo": 3,
+        "Free State": 1, "North West": 1, "Northern Cape": 2,
+    }
+    
+    orders = []
+    date_range = (end_date - start_date).days
+    dates = [start_date + timedelta(days=i) for i in range(date_range)]
+    order_dates = np.random.choice(dates, n_orders, replace=True)
+    
+    for i in range(n_orders):
+        date = order_dates[i]
+        product_name = random.choice(list(products.keys()))
+        product = products[product_name]
+        supplier_name, region, reliability = random.choice(suppliers)
+        
+        qty = int(np.random.gamma(2, 150)) + 20
+        qty = min(qty, 3000)
+        
+        # Seasonal price factor
+        if date.month in [1,2,3] and product_name in ["Tomatoes", "Avocados"]:
+            seasonal_factor = 0.85
+        else:
+            seasonal_factor = 1.0
+        
+        price = product["base"] * seasonal_factor * np.random.normal(1, 0.15)
+        if np.random.random() < 0.05:
+            price *= random.uniform(1.3, 1.8)
+        price = round(price, 2)
+        
+        # Delay calculation
+        if np.random.random() > reliability:
+            delay = int(np.random.exponential(4))
+        else:
+            delay = 0
+        
+        delay += region_penalty.get(region, 1)
+        
+        if qty > 1500:
+            delay += 2
+        if product["perish"] and delay > 0:
+            delay += int(delay * 0.3)
+        if date.weekday() >= 5:
+            delay += 1
+        if date.month in [11, 12]:
+            delay += 1
+        
+        delay = min(delay, 20)
+        
+        promised = random.randint(2, 5)
+        actual = max(1, promised + delay)
+        
+        orders.append({
+            "order_id": f"ORD-{100000 + i}",
+            "order_date": date,
+            "product": product_name,
+            "product_category": product["cat"],
+            "perishable": product["perish"],
+            "supplier": supplier_name,
+            "supplier_region": region,
+            "quantity_kg": qty,
+            "price_per_kg": price,
+            "total_value_zar": round(price * qty, 2),
+            "promised_days": promised,
+            "actual_days": actual,
+            "delay_days": delay,
+        })
+    
+    df = pd.DataFrame(orders)
+    df["expected_delivery_date"] = df["order_date"] + pd.to_timedelta(df["promised_days"], unit="D")
+    df["actual_delivery_date"] = df["order_date"] + pd.to_timedelta(df["actual_days"], unit="D")
+    df["on_time"] = (df["delay_days"] <= 0).astype(int)
+    df = df.sort_values("order_date").reset_index(drop=True)
+    
+    return df
+
+
+# ============================================================================
 # BUSINESS RULES (Interactive)
 # ============================================================================
 
@@ -85,7 +214,10 @@ def get_business_rules():
 
 @st.cache_data
 def load_and_process(uploaded_file, rules):
-    df = pd.read_csv(uploaded_file, parse_dates=["order_date", "expected_delivery_date", "actual_delivery_date"])
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file, parse_dates=["order_date", "expected_delivery_date", "actual_delivery_date"])
+    else:
+        df = generate_sample_data(10000)
     
     # Quality checks
     quality_issues = []
@@ -106,7 +238,7 @@ def load_and_process(uploaded_file, rules):
     df["month"] = df["order_date"].dt.month
     df["weekday"] = df["order_date"].dt.dayofweek
     
-    # Supplier reliability (historical)
+    # Supplier reliability
     supplier_reliability = df.groupby("supplier")["on_time"].mean().to_dict()
     df["supplier_reliability"] = df["supplier"].map(supplier_reliability).fillna(0.5)
     
@@ -127,14 +259,14 @@ def load_and_process(uploaded_file, rules):
     df.loc[df["risk_level"] == "🔴 HIGH", "recommended_action"] = "🚨 EXPEDITE OR SWITCH"
     df.loc[df["perishable"] & (df["delay_days"] > 2), "recommended_action"] = "⚠️ URGENT - PERISHABLE"
     
-    # Price spike detection (simple rolling method)
+    # Price spike detection
     df["price_rolling_mean"] = df.groupby("product")["price_per_kg"].transform(lambda x: x.rolling(30, min_periods=5).mean())
     df["price_rolling_std"] = df.groupby("product")["price_per_kg"].transform(lambda x: x.rolling(30, min_periods=5).std())
     df["price_zscore"] = (df["price_per_kg"] - df["price_rolling_mean"]) / df["price_rolling_std"].replace(0, 0.01)
     df["is_price_spike"] = df["price_zscore"] > 2
     df["spike_severity"] = np.where(df["price_zscore"] > 3, "Extreme", np.where(df["price_zscore"] > 2, "Moderate", "Normal"))
     
-    # Prediction confidence (based on order count)
+    # Prediction confidence
     order_counts = df.groupby("supplier")["order_id"].count().to_dict()
     df["prediction_confidence"] = df["supplier"].map(order_counts).fillna(0) / 100
     df["prediction_confidence"] = df["prediction_confidence"].clip(0, 0.95)
@@ -143,27 +275,16 @@ def load_and_process(uploaded_file, rules):
 
 
 # ============================================================================
-# PREDICTION SUMMARY
+# INSIGHTS FUNCTIONS
 # ============================================================================
 
 def get_prediction_summary(df, rules):
-    """Returns realistic predictions based on actual risk patterns"""
-    
-    # Count high-risk orders (already delayed past threshold)
     high_risk_orders = df[df["risk_level"] == "🔴 HIGH"]
     predicted_delayed = len(high_risk_orders)
-    
-    # High confidence predictions: orders with delay > 7 days OR perishable + delay > 3
     high_confidence = len(df[(df["delay_days"] > 7) | (df["perishable"] & (df["delay_days"] > 3))])
-    
-    # Estimated future loss: based on high-risk orders' value
     estimated_loss = high_risk_orders["total_value_zar"].sum() * 0.3
-    
-    # Problem suppliers: those causing most loss
     supplier_loss = df.groupby("supplier")["total_delay_cost"].sum().sort_values(ascending=False)
     problem_suppliers = supplier_loss.head(5).to_dict()
-    
-    # Total orders that are problematic (delay > 0)
     total_problematic = len(df[df["delay_days"] > 0])
     
     return {
@@ -176,10 +297,6 @@ def get_prediction_summary(df, rules):
     }
 
 
-# ============================================================================
-# OTHER INSIGHTS FUNCTIONS
-# ============================================================================
-
 def get_priority_list(df):
     result = df[df["delay_days"] > 0].sort_values(["delay_days", "total_delay_cost"], ascending=False).head(20)
     if result.empty:
@@ -189,12 +306,8 @@ def get_priority_list(df):
 
 def get_supplier_report(df):
     supplier_stats = df.groupby("supplier").agg({
-        "order_id": "count", 
-        "delay_days": "mean", 
-        "total_delay_cost": "sum",
-        "on_time": "mean", 
-        "supplier_reliability": "first", 
-        "total_value_zar": "sum"
+        "order_id": "count", "delay_days": "mean", "total_delay_cost": "sum",
+        "on_time": "mean", "supplier_reliability": "first", "total_value_zar": "sum"
     }).round(2)
     supplier_stats.columns = ["orders", "avg_delay", "total_loss", "on_time_rate", "reliability", "revenue"]
     supplier_stats = supplier_stats.sort_values("total_loss", ascending=False).reset_index()
@@ -205,11 +318,8 @@ def get_supplier_report(df):
 
 def get_product_report(df):
     product_stats = df.groupby("product").agg({
-        "order_id": "count", 
-        "delay_days": "mean", 
-        "total_delay_cost": "sum",
-        "on_time": "mean", 
-        "total_value_zar": "sum"
+        "order_id": "count", "delay_days": "mean", "total_delay_cost": "sum",
+        "on_time": "mean", "total_value_zar": "sum"
     }).round(2)
     product_stats.columns = ["orders", "avg_delay", "total_loss", "on_time_rate", "revenue"]
     product_stats = product_stats.sort_values("total_loss", ascending=False).reset_index()
@@ -219,10 +329,7 @@ def get_product_report(df):
 
 def get_regional_report(df):
     region_stats = df.groupby("supplier_region").agg({
-        "order_id": "count", 
-        "delay_days": "mean", 
-        "total_delay_cost": "sum", 
-        "on_time": "mean"
+        "order_id": "count", "delay_days": "mean", "total_delay_cost": "sum", "on_time": "mean"
     }).round(2)
     region_stats.columns = ["orders", "avg_delay", "total_loss", "on_time_rate"]
     region_stats = region_stats.sort_values("total_loss", ascending=False).reset_index()
@@ -232,20 +339,14 @@ def get_regional_report(df):
 
 def get_time_series(df):
     monthly = df.groupby(df["order_date"].dt.to_period("M")).agg({
-        "on_time": "mean", 
-        "delay_days": "mean", 
-        "total_delay_cost": "sum", 
-        "total_value_zar": "sum"
+        "on_time": "mean", "delay_days": "mean", "total_delay_cost": "sum", "total_value_zar": "sum"
     }).reset_index()
     monthly["month"] = monthly["order_date"].astype(str)
     return monthly
 
 
 def get_seasonal(df):
-    seasonal = df.groupby("month").agg({
-        "delay_days": "mean", 
-        "total_delay_cost": "sum"
-    }).reset_index()
+    seasonal = df.groupby("month").agg({"delay_days": "mean", "total_delay_cost": "sum"}).reset_index()
     month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     seasonal["month_name"] = seasonal["month"].apply(lambda x: month_names[x-1])
     return seasonal
@@ -319,6 +420,184 @@ def create_south_africa_map(df):
 # MAIN APP
 # ============================================================================
 
+def render_dashboard(df, rules):
+    """Render the main dashboard after data is loaded"""
+    
+    prediction = get_prediction_summary(df, rules)
+    priority = get_priority_list(df)
+    supplier_report = get_supplier_report(df)
+    product_report = get_product_report(df)
+    regional_report = get_regional_report(df)
+    time_series = get_time_series(df)
+    seasonal = get_seasonal(df)
+    spike_heatmap = get_price_spike_heatmap(df)
+    delay_dist = get_delay_distribution(df)
+    
+    total_loss = df["total_delay_cost"].sum()
+    high_risk_count = len(df[df["risk_level"] == "🔴 HIGH"])
+    on_time_rate = df["on_time"].mean() * 100
+    total_revenue = df["total_value_zar"].sum()
+    
+    # ==================== PREDICTION BANNER ====================
+    if prediction["predicted_delayed"] > 0:
+        st.markdown(f"""
+        <div class='prediction-banner'>
+            <h2>🔮 {prediction['predicted_delayed']} orders are HIGH RISK right now</h2>
+            <p>⚡ {prediction['high_confidence']} of these are critical (delay >7 days or perishable + delay >3)</p>
+            <p>💡 Estimated financial impact: <strong>R{prediction['estimated_loss']:,.0f}</strong></p>
+            <p>🚨 Top loss drivers: {', '.join([f"{s} (R{v:,.0f})" for s, v in list(prediction['problem_suppliers'].items())[:3]])}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div class='prediction-banner'>
+            <h2>✅ No high-risk orders detected</h2>
+            <p>📊 {len(df)} orders analyzed. {prediction['total_problematic']} had some delay.</p>
+            <p>💰 Total financial loss from delays: R{total_loss:,.0f}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # ==================== KPI DASHBOARD ====================
+    st.markdown("## 📊 Executive KPI Dashboard")
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
+    col1.metric("Total Orders", f"{len(df):,}")
+    col2.metric("Total Revenue", f"R{total_revenue/1_000_000:.1f}M")
+    col3.metric("On-Time %", f"{on_time_rate:.1f}%")
+    col4.metric("Financial Loss", f"R{total_loss/1_000:.0f}K")
+    col5.metric("High Risk Orders", high_risk_count)
+    col6.metric("Problematic Orders", prediction["total_problematic"])
+    
+    st.markdown("---")
+    
+    # ==================== DAILY DECISION SUMMARY ====================
+    st.markdown("## 📋 DAILY DECISION SUMMARY")
+    top_supplier = supplier_report.iloc[0]['supplier'] if not supplier_report.empty else 'None'
+    top_supplier_loss = supplier_report.iloc[0]['total_loss'] if not supplier_report.empty else 0
+    top_region = regional_report.iloc[0]['supplier_region'] if not regional_report.empty else 'None'
+    
+    st.info(f"""
+    **🎯 TODAY'S PRIORITIES:**
+    - 🔴 **{high_risk_count} orders** need immediate attention
+    - 🏭 **{top_supplier}** causing most losses (R{top_supplier_loss:,.0f})
+    - 📍 **{top_region}** region is your biggest problem
+    - 💰 **Total loss so far:** R{total_loss:,.0f}
+    """)
+    
+    st.markdown("---")
+    
+    # ==================== TABS ====================
+    tabs = st.tabs(["🚨 Priority", "🏭 Suppliers", "📦 Products", "🗺️ Regions", 
+                    "📈 Trends", "📅 Seasonal", "🔥 Price Spikes", "📊 Statistics", "🔮 Simulation"])
+    
+    # TAB 1: PRIORITY
+    with tabs[0]:
+        st.markdown("## 🚨 TODAY'S PRIORITY LIST")
+        if not priority.empty:
+            for _, row in priority.head(5).iterrows():
+                st.error(f"""
+                **Order {row['order_id']}** | {row['product']} | Supplier: {row['supplier']}
+                - Delay: {row['delay_days']:.0f} days | Loss: R{row['total_delay_cost']:,.0f}
+                - **Action:** {row['recommended_action']}
+                """)
+        st.dataframe(priority, use_container_width=True)
+    
+    # TAB 2: SUPPLIERS
+    with tabs[1]:
+        st.dataframe(supplier_report.head(15), use_container_width=True)
+        fig = px.bar(supplier_report.head(10), x="total_loss", y="supplier", orientation="h", 
+                    title="Top Loss-Making Suppliers", color="total_loss", color_continuous_scale="Reds")
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # TAB 3: PRODUCTS
+    with tabs[2]:
+        st.dataframe(product_report.head(15), use_container_width=True)
+        fig = px.bar(product_report.head(10), x="total_loss", y="product", orientation="h", 
+                    title="Top Loss-Making Products", color="total_loss", color_continuous_scale="Reds")
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # TAB 4: REGIONS
+    with tabs[3]:
+        st.dataframe(regional_report, use_container_width=True)
+        fig = create_south_africa_map(df)
+        st.plotly_chart(fig, use_container_width=True)
+        fig2 = px.bar(regional_report, x="supplier_region", y="total_loss", 
+                     title="Delay Cost by Region", color="total_loss", color_continuous_scale="Reds")
+        st.plotly_chart(fig2, use_container_width=True)
+    
+    # TAB 5: TRENDS
+    with tabs[4]:
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        fig.add_trace(go.Scatter(x=time_series["month"], y=time_series["on_time"]*100, 
+                                name="On-Time %", line=dict(color="#27ae60", width=3)), secondary_y=False)
+        fig.add_trace(go.Scatter(x=time_series["month"], y=time_series["delay_days"], 
+                                name="Delay Days", line=dict(color="#e74c3c", width=3, dash="dash")), secondary_y=True)
+        fig.update_layout(title="Performance Trends Over Time", height=450)
+        st.plotly_chart(fig, use_container_width=True)
+        
+        fig2 = px.area(time_series, x="month", y="total_value_zar", title="Revenue Trend")
+        st.plotly_chart(fig2, use_container_width=True)
+    
+    # TAB 6: SEASONAL
+    with tabs[5]:
+        fig = px.line(seasonal, x="month_name", y="delay_days", title="Average Delay by Month", markers=True)
+        st.plotly_chart(fig, use_container_width=True)
+        fig2 = px.bar(seasonal, x="month_name", y="total_delay_cost", title="Delay Cost by Month", color="total_delay_cost")
+        st.plotly_chart(fig2, use_container_width=True)
+    
+    # TAB 7: PRICE SPIKES
+    with tabs[6]:
+        if not spike_heatmap.empty:
+            spike_pct = spike_heatmap * 100
+            fig = px.imshow(spike_pct, text_auto='.1f', aspect='auto', 
+                           title="Price Spike Probability by Product and Month (%)", 
+                           color_continuous_scale="Reds", height=500)
+            st.plotly_chart(fig, use_container_width=True)
+        
+        spike_timeline = df.groupby(df["order_date"].dt.to_period("M"))["is_price_spike"].sum().reset_index()
+        spike_timeline["month"] = spike_timeline["order_date"].astype(str)
+        fig = px.bar(spike_timeline, x="month", y="is_price_spike", title="Price Spike Count by Month", 
+                   color="is_price_spike", color_continuous_scale="Reds")
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # TAB 8: STATISTICS
+    with tabs[7]:
+        col1, col2 = st.columns(2)
+        with col1:
+            fig = px.histogram(df, x="delay_days", nbins=30, title="Delay Distribution", marginal="box")
+            st.plotly_chart(fig, use_container_width=True)
+        with col2:
+            fig = px.histogram(df, x="price_per_kg", nbins=40, title="Price Distribution", marginal="violin")
+            st.plotly_chart(fig, use_container_width=True)
+        
+        if not delay_dist.empty:
+            fig = px.pie(delay_dist, values="count", names="delay_category", title="Delay Categories", hole=0.3)
+            st.plotly_chart(fig, use_container_width=True)
+    
+    # TAB 9: SIMULATION
+    with tabs[8]:
+        st.markdown("## 🔮 What-If Simulation")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Current Total Loss", f"R{total_loss:,.0f}")
+            st.metric("High Risk Orders", high_risk_count)
+        with col2:
+            action = st.radio("Action to simulate:", ["🚀 Expedite Critical Orders", "🔄 Switch to Backup Supplier", "⏸️ Do Nothing"], horizontal=True)
+            action_key = {"🚀 Expedite Critical Orders": "expedite", "🔄 Switch to Backup Supplier": "switch", "⏸️ Do Nothing": "none"}[action]
+            sim = simulate_action(df, rules, action_key)
+            st.metric("After Action Loss", f"R{sim['new_loss']:,.0f}", 
+                     delta=f"-R{sim['savings']:,.0f}" if sim['savings'] > 0 else None)
+            st.metric("Improvement", f"{sim['savings_pct']:.0f}%")
+            st.success(f"💰 Potential savings: R{sim['savings']:,.0f}")
+    
+    # Export
+    st.markdown("---")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.download_button("📊 Export Priority List", priority.to_csv(index=False), "priority.csv", "text/csv")
+    with col2:
+        st.download_button("🏭 Export Supplier Report", supplier_report.to_csv(index=False), "suppliers.csv", "text/csv")
+
+
 def main():
     st.markdown("""
     <div class='main-header'>
@@ -330,202 +609,56 @@ def main():
     rules = get_business_rules()
     
     st.markdown("### 📁 Data Source")
-    uploaded_file = st.file_uploader("Upload order data (CSV)", type="csv")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        uploaded_file = st.file_uploader("Upload CSV (or use sample data)", type="csv")
+    
+    with col2:
+        use_sample = st.button("🎲 Generate Sample Data", use_container_width=True)
     
     if uploaded_file is not None:
         with st.spinner("Analyzing supply chain data..."):
             df, quality_issues = load_and_process(uploaded_file, rules)
-            prediction = get_prediction_summary(df, rules)
-            priority = get_priority_list(df)
-            supplier_report = get_supplier_report(df)
-            product_report = get_product_report(df)
-            regional_report = get_regional_report(df)
-            time_series = get_time_series(df)
-            seasonal = get_seasonal(df)
-            spike_heatmap = get_price_spike_heatmap(df)
-            delay_dist = get_delay_distribution(df)
-            
-            total_loss = df["total_delay_cost"].sum()
-            high_risk_count = len(df[df["risk_level"] == "🔴 HIGH"])
-            on_time_rate = df["on_time"].mean() * 100
-            total_revenue = df["total_value_zar"].sum()
-            
             for issue in quality_issues:
                 st.warning(issue)
-            
-            # ==================== PREDICTION BANNER ====================
-            if prediction["predicted_delayed"] > 0:
-                st.markdown(f"""
-                <div class='prediction-banner'>
-                    <h2>🔮 {prediction['predicted_delayed']} orders are HIGH RISK right now</h2>
-                    <p>⚡ {prediction['high_confidence']} of these are critical (delay >7 days or perishable + delay >3)</p>
-                    <p>💡 Estimated financial impact: <strong>R{prediction['estimated_loss']:,.0f}</strong></p>
-                    <p>🚨 Top loss drivers: {', '.join([f"{s} (R{v:,.0f})" for s, v in list(prediction['problem_suppliers'].items())[:3]])}</p>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div class='prediction-banner'>
-                    <h2>✅ No high-risk orders detected</h2>
-                    <p>📊 {len(df)} orders analyzed. {prediction['total_problematic']} had some delay.</p>
-                    <p>💰 Total financial loss from delays: R{total_loss:,.0f}</p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            # ==================== KPI DASHBOARD ====================
-            st.markdown("## 📊 Executive KPI Dashboard")
-            col1, col2, col3, col4, col5, col6 = st.columns(6)
-            col1.metric("Total Orders", f"{len(df):,}")
-            col2.metric("Total Revenue", f"R{total_revenue/1_000_000:.1f}M")
-            col3.metric("On-Time %", f"{on_time_rate:.1f}%")
-            col4.metric("Financial Loss", f"R{total_loss/1_000:.0f}K")
-            col5.metric("High Risk Orders", high_risk_count)
-            col6.metric("Problematic Orders", prediction["total_problematic"])
-            
-            st.markdown("---")
-            
-            # ==================== DAILY DECISION SUMMARY ====================
-            st.markdown("## 📋 DAILY DECISION SUMMARY")
-            top_supplier = supplier_report.iloc[0]['supplier'] if not supplier_report.empty else 'None'
-            top_supplier_loss = supplier_report.iloc[0]['total_loss'] if not supplier_report.empty else 0
-            top_region = regional_report.iloc[0]['supplier_region'] if not regional_report.empty else 'None'
-            
-            st.info(f"""
-            **🎯 TODAY'S PRIORITIES:**
-            - 🔴 **{high_risk_count} orders** need immediate attention
-            - 🏭 **{top_supplier}** causing most losses (R{top_supplier_loss:,.0f})
-            - 📍 **{top_region}** region is your biggest problem
-            - 💰 **Total loss so far:** R{total_loss:,.0f}
-            """)
-            
-            st.markdown("---")
-            
-            # ==================== TABS ====================
-            tabs = st.tabs(["🚨 Priority", "🏭 Suppliers", "📦 Products", "🗺️ Regions", 
-                            "📈 Trends", "📅 Seasonal", "🔥 Price Spikes", "📊 Statistics", "🔮 Simulation"])
-            
-            # TAB 1: PRIORITY
-            with tabs[0]:
-                st.markdown("## 🚨 TODAY'S PRIORITY LIST")
-                if not priority.empty:
-                    for _, row in priority.head(5).iterrows():
-                        st.error(f"""
-                        **Order {row['order_id']}** | {row['product']} | Supplier: {row['supplier']}
-                        - Delay: {row['delay_days']:.0f} days | Loss: R{row['total_delay_cost']:,.0f}
-                        - **Action:** {row['recommended_action']}
-                        """)
-                st.dataframe(priority, use_container_width=True)
-            
-            # TAB 2: SUPPLIERS
-            with tabs[1]:
-                st.dataframe(supplier_report.head(15), use_container_width=True)
-                fig = px.bar(supplier_report.head(10), x="total_loss", y="supplier", orientation="h", 
-                            title="Top Loss-Making Suppliers", color="total_loss", color_continuous_scale="Reds")
-                st.plotly_chart(fig, use_container_width=True)
-            
-            # TAB 3: PRODUCTS
-            with tabs[2]:
-                st.dataframe(product_report.head(15), use_container_width=True)
-                fig = px.bar(product_report.head(10), x="total_loss", y="product", orientation="h", 
-                            title="Top Loss-Making Products", color="total_loss", color_continuous_scale="Reds")
-                st.plotly_chart(fig, use_container_width=True)
-            
-            # TAB 4: REGIONS
-            with tabs[3]:
-                st.dataframe(regional_report, use_container_width=True)
-                fig = create_south_africa_map(df)
-                st.plotly_chart(fig, use_container_width=True)
-                fig2 = px.bar(regional_report, x="supplier_region", y="total_loss", 
-                             title="Delay Cost by Region", color="total_loss", color_continuous_scale="Reds")
-                st.plotly_chart(fig2, use_container_width=True)
-            
-            # TAB 5: TRENDS
-            with tabs[4]:
-                fig = make_subplots(specs=[[{"secondary_y": True}]])
-                fig.add_trace(go.Scatter(x=time_series["month"], y=time_series["on_time"]*100, 
-                                        name="On-Time %", line=dict(color="#27ae60", width=3)), secondary_y=False)
-                fig.add_trace(go.Scatter(x=time_series["month"], y=time_series["delay_days"], 
-                                        name="Delay Days", line=dict(color="#e74c3c", width=3, dash="dash")), secondary_y=True)
-                fig.update_layout(title="Performance Trends Over Time", height=450)
-                st.plotly_chart(fig, use_container_width=True)
-                
-                fig2 = px.area(time_series, x="month", y="total_value_zar", title="Revenue Trend")
-                st.plotly_chart(fig2, use_container_width=True)
-            
-            # TAB 6: SEASONAL
-            with tabs[5]:
-                fig = px.line(seasonal, x="month_name", y="delay_days", title="Average Delay by Month", markers=True)
-                st.plotly_chart(fig, use_container_width=True)
-                fig2 = px.bar(seasonal, x="month_name", y="total_delay_cost", title="Delay Cost by Month", color="total_delay_cost")
-                st.plotly_chart(fig2, use_container_width=True)
-            
-            # TAB 7: PRICE SPIKES
-            with tabs[6]:
-                if not spike_heatmap.empty:
-                    spike_pct = spike_heatmap * 100
-                    fig = px.imshow(spike_pct, text_auto='.1f', aspect='auto', 
-                                   title="Price Spike Probability by Product and Month (%)", 
-                                   color_continuous_scale="Reds", height=500)
-                    st.plotly_chart(fig, use_container_width=True)
-                
-                spike_timeline = df.groupby(df["order_date"].dt.to_period("M"))["is_price_spike"].sum().reset_index()
-                spike_timeline["month"] = spike_timeline["order_date"].astype(str)
-                fig = px.bar(spike_timeline, x="month", y="is_price_spike", title="Price Spike Count by Month", 
-                           color="is_price_spike", color_continuous_scale="Reds")
-                st.plotly_chart(fig, use_container_width=True)
-            
-            # TAB 8: STATISTICS
-            with tabs[7]:
-                col1, col2 = st.columns(2)
-                with col1:
-                    fig = px.histogram(df, x="delay_days", nbins=30, title="Delay Distribution", marginal="box")
-                    st.plotly_chart(fig, use_container_width=True)
-                with col2:
-                    fig = px.histogram(df, x="price_per_kg", nbins=40, title="Price Distribution", marginal="violin")
-                    st.plotly_chart(fig, use_container_width=True)
-                
-                if not delay_dist.empty:
-                    fig = px.pie(delay_dist, values="count", names="delay_category", title="Delay Categories", hole=0.3)
-                    st.plotly_chart(fig, use_container_width=True)
-            
-            # TAB 9: SIMULATION
-            with tabs[8]:
-                st.markdown("## 🔮 What-If Simulation")
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("Current Total Loss", f"R{total_loss:,.0f}")
-                    st.metric("High Risk Orders", high_risk_count)
-                with col2:
-                    action = st.radio("Action to simulate:", ["🚀 Expedite Critical Orders", "🔄 Switch to Backup Supplier", "⏸️ Do Nothing"], horizontal=True)
-                    action_key = {"🚀 Expedite Critical Orders": "expedite", "🔄 Switch to Backup Supplier": "switch", "⏸️ Do Nothing": "none"}[action]
-                    sim = simulate_action(df, rules, action_key)
-                    st.metric("After Action Loss", f"R{sim['new_loss']:,.0f}", 
-                             delta=f"-R{sim['savings']:,.0f}" if sim['savings'] > 0 else None)
-                    st.metric("Improvement", f"{sim['savings_pct']:.0f}%")
-                    st.success(f"💰 Potential savings: R{sim['savings']:,.0f}")
-            
-            # ==================== EXPORT ====================
-            st.markdown("---")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.download_button("📊 Export Priority List", priority.to_csv(index=False), "priority.csv", "text/csv")
-            with col2:
-                st.download_button("🏭 Export Supplier Report", supplier_report.to_csv(index=False), "suppliers.csv", "text/csv")
+            render_dashboard(df, rules)
+    
+    elif use_sample:
+        with st.spinner("Generating and analyzing sample data..."):
+            df, quality_issues = load_and_process(None, rules)
+            for issue in quality_issues:
+                st.warning(issue)
+            st.success("✅ Sample data generated successfully! 10,000 orders created.")
+            render_dashboard(df, rules)
     
     else:
         st.markdown("""
         <div style='text-align: center; padding: 3rem;'>
             <h2>🚀 Upload Your Supply Chain Data</h2>
             <p>Get real predictions, financial impact, and actionable decisions.</p>
-            <p style='margin-top: 2rem;'>↓ Upload a CSV file to begin ↓</p>
+            <p style='margin-top: 2rem;'>↓ Upload a CSV file or click "Generate Sample Data" ↓</p>
         </div>
         """, unsafe_allow_html=True)
         
-        if st.button("🎲 Load Sample Data", use_container_width=True):
-            if os.path.exists("nile_supply_chain_moonshot.csv"):
-                st.success("Sample data found! Please upload the file.")
-            else:
-                st.info("Run 'python generate_data.py' first.")
+        # Show sample format
+        with st.expander("📋 Expected CSV Format"):
+            st.markdown("""
+            Your CSV should contain these columns:
+            - `order_id` - Unique identifier
+            - `order_date` - YYYY-MM-DD
+            - `expected_delivery_date` - YYYY-MM-DD
+            - `actual_delivery_date` - YYYY-MM-DD
+            - `supplier` - Supplier name
+            - `supplier_region` - Province/region
+            - `product` - Product name
+            - `product_category` - Category
+            - `perishable` - True/False
+            - `quantity_kg` - Order quantity
+            - `price_per_kg` - Unit price
+            - `total_value_zar` - Total value
+            """)
 
 
 if __name__ == "__main__":
