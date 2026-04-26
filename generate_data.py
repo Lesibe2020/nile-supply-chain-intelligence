@@ -1,4 +1,4 @@
-# generate_data.py - MOON SHOT EDITION
+# generate_data.py 
 # Complete supply chain data generator with product risk weights
 
 import pandas as pd
