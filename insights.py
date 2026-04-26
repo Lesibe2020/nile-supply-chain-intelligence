@@ -1,4 +1,4 @@
-# insights.py - COMPLETE ENHANCED ULTIMATE EDITION
+# insights.py 
 # Requires: pip install statsmodels
 
 import pandas as pd
