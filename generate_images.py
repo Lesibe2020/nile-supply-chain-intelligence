@@ -1,5 +1,5 @@
 # generate_images.py - Aligned with Nile.ag App
-# Creates images that match your actual app's visualizations
+
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
